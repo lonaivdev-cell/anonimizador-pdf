@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- Imported PDFs copied into app-internal storage -->
+    <files-path name="documents" path="documents/" />
+    <!-- Anonymized .txt exports staged for sharing -->
+    <files-path name="exports" path="exports/" />
+    <cache-path name="cache" path="." />
+</paths>

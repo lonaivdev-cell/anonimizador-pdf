@@ -69,6 +69,20 @@ O build é verificado no **GitHub Actions** (`.github/workflows/android.yml`) em
 que já possui o Android SDK e acesso de rede. O workflow roda `assembleDebug` + `testDebugUnitTest`
 e publica o `app-debug.apk` como artefato do job.
 
+### Publicar uma release (APK)
+
+O artefato do build de CI é temporário e exige login para baixar. Para publicar um APK permanente na
+página de **Releases** do GitHub, faça push de uma tag de versão — o workflow
+`.github/workflows/release.yml` compila o APK e cria a Release com o APK anexado:
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+Como alternativa, use **Actions → Release → Run workflow** e informe a versão (ex.: `v1.0.0`).
+O APK publicado é assinado com a chave de debug (instalável por sideload).
+
 ## Carregar um modelo LLM (Gemma 3)
 
 O app **não** embute nenhum modelo. Para usar o Modo A (sugestão automática):

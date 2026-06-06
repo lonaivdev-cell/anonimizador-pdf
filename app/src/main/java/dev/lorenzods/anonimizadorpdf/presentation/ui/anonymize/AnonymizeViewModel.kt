@@ -16,7 +16,9 @@ import dev.lorenzods.anonimizadorpdf.domain.repository.PdfRepository
 import dev.lorenzods.anonimizadorpdf.domain.usecase.ApplyRedactionsUseCase
 import dev.lorenzods.anonimizadorpdf.domain.usecase.LlmResponseParser
 import dev.lorenzods.anonimizadorpdf.domain.usecase.SuggestRedactionsUseCase
+import dev.lorenzods.anonimizadorpdf.domain.usecase.TextChunker
 import dev.lorenzods.anonimizadorpdf.presentation.navigation.Screen
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,7 +26,6 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -38,10 +39,11 @@ data class AnonymizeUiState(
     val mode: AnonymizeMode = AnonymizeMode.AUTO,
     val modelAvailable: Boolean = false,
     val generating: Boolean = false,
+    val progress: String? = null,
     val streamingText: String = "",
     val chips: List<RedactionChip> = emptyList(),
     val previewText: String? = null,
-    @StringRes val error: Int? = null,
+    val errorText: String? = null,
 ) {
     val selectedTerms: List<String> get() = chips.filter { it.selected }.map { it.term }
 }
@@ -83,31 +85,43 @@ class AnonymizeViewModel @Inject constructor(
 
     fun setMode(mode: AnonymizeMode) = _uiState.update { it.copy(mode = mode) }
 
-    fun clearError() = _uiState.update { it.copy(error = null) }
+    fun clearError() = _uiState.update { it.copy(errorText = null) }
 
     fun generate() {
         val doc = _uiState.value.document ?: return
         generateJob?.cancel()
-        _uiState.update { it.copy(generating = true, streamingText = "", error = null) }
+        _uiState.update { it.copy(generating = true, streamingText = "", errorText = null) }
         generateJob = viewModelScope.launch {
-            val builder = StringBuilder()
             try {
-                val prompt = preferences.systemPrompt.first()
-                suggestRedactions.stream(prompt, doc.extractedText)
-                    .onCompletion { cause ->
-                        if (cause == null) {
-                            val terms = LlmResponseParser.parseTerms(builder.toString())
-                            _uiState.update { state -> state.copy(generating = false, chips = mergeChips(state.chips, terms)) }
-                        }
-                    }
-                    .collect { token ->
+                val systemPrompt = preferences.systemPrompt.first()
+                // A small on-device model can't read a whole document at once — analyze it in
+                // context-sized chunks and aggregate the suggested terms.
+                val chunks = TextChunker.chunk(doc.extractedText, CHUNK_CHARS)
+                for ((index, chunk) in chunks.withIndex()) {
+                    _uiState.update { it.copy(progress = "${index + 1}/${chunks.size}", streamingText = "") }
+                    val builder = StringBuilder()
+                    suggestRedactions.stream(systemPrompt, chunk).collect { token ->
                         builder.append(token)
                         _uiState.update { it.copy(streamingText = builder.toString()) }
                     }
+                    val terms = LlmResponseParser.parseTerms(builder.toString())
+                    if (terms.isNotEmpty()) {
+                        _uiState.update { it.copy(chips = mergeChips(it.chips, terms)) }
+                    }
+                }
+                _uiState.update { it.copy(generating = false, progress = null) }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: LlmNotReadyException) {
-                _uiState.update { it.copy(generating = false, modelAvailable = false) }
+                _uiState.update { it.copy(generating = false, progress = null, modelAvailable = false) }
             } catch (e: Exception) {
-                _uiState.update { it.copy(generating = false, error = R.string.error_llm) }
+                _uiState.update {
+                    it.copy(
+                        generating = false,
+                        progress = null,
+                        errorText = e.message ?: "Falha na inferência do modelo.",
+                    )
+                }
             }
         }
     }
@@ -171,5 +185,11 @@ class AnonymizeViewModel @Inject constructor(
         super.onCleared()
         // Release native LLM resources held by the singleton engine.
         llmRepository.close()
+    }
+
+    private companion object {
+        // Characters per chunk — keeps prompt + chunk + output within the model's context window
+        // (see LlmRepositoryImpl.MAX_TOKENS). ~1500 chars ≈ a few hundred tokens.
+        const val CHUNK_CHARS = 1500
     }
 }

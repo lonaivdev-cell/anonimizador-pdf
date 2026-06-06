@@ -76,6 +76,10 @@
     <string name="no_terms">Nenhum termo selecionado ainda.</string>
     <string name="no_suggestions">Nenhum termo sugerido pelo modelo.</string>
     <string name="selection_hint">Selecione um trecho do texto e toque em \"Adicionar à lista\".</string>
+    <string name="manual_hint">Digite ou cole um termo a remover (você pode copiá-lo do texto abaixo) e toque em Adicionar.</string>
+    <string name="term_to_remove">Termo a remover</string>
+    <string name="document_text_label">Texto do documento (toque e segure para selecionar e copiar)</string>
+    <string name="add">Adicionar</string>
     <string name="preview_title">Pré-visualização</string>
     <string name="preview_subtitle">Os termos abaixo foram substituídos por [ANONIMIZADO].</string>
     <string name="save_and_export">Salvar e exportar</string>

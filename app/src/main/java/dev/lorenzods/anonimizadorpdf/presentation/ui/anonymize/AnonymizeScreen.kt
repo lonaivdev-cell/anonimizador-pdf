@@ -20,8 +20,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -63,7 +65,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
@@ -94,9 +95,8 @@ fun AnonymizeScreen(
         }
     }
 
-    uiState.error?.let { res ->
-        val message = stringResource(res)
-        LaunchedEffect(res) {
+    uiState.errorText?.let { message ->
+        LaunchedEffect(message) {
             snackbarHostState.showSnackbar(message)
             viewModel.clearError()
         }
@@ -238,8 +238,12 @@ private fun ModeAuto(
         Card(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    CircularProgressIndicator(Modifier.height(20.dp), strokeWidth = 2.dp)
-                    Text(stringResource(R.string.thinking), style = MaterialTheme.typography.titleSmall)
+                    CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                    val thinking = stringResource(R.string.thinking)
+                    Text(
+                        text = uiState.progress?.let { "$thinking ($it)" } ?: thinking,
+                        style = MaterialTheme.typography.titleSmall,
+                    )
                 }
                 if (uiState.streamingText.isNotBlank()) {
                     Text(
@@ -263,37 +267,46 @@ private fun ModeAuto(
 
 @Composable
 private fun ModeManual(uiState: AnonymizeUiState, onAddManual: (String) -> Unit) {
-    val doc = uiState.document
-    var fieldValue by remember(doc?.id) {
-        mutableStateOf(TextFieldValue(doc?.extractedText.orEmpty()))
+    var term by remember { mutableStateOf("") }
+
+    Text(stringResource(R.string.manual_hint), style = MaterialTheme.typography.bodyMedium)
+
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        OutlinedTextField(
+            value = term,
+            onValueChange = { term = it },
+            label = { Text(stringResource(R.string.term_to_remove)) },
+            singleLine = true,
+            modifier = Modifier.weight(1f),
+        )
+        Button(
+            onClick = {
+                onAddManual(term)
+                term = ""
+            },
+            enabled = term.isNotBlank(),
+        ) {
+            Icon(Icons.Filled.Add, contentDescription = null)
+            Spacer(Modifier.width(8.dp))
+            Text(stringResource(R.string.add))
+        }
     }
-    val hasSelection = !fieldValue.selection.collapsed
 
-    Text(stringResource(R.string.selection_hint), style = MaterialTheme.typography.bodyMedium)
-
-    OutlinedTextField(
-        value = fieldValue,
-        onValueChange = { fieldValue = it },
-        readOnly = true,
-        textStyle = DocumentTextStyle,
+    Text(
+        text = stringResource(R.string.document_text_label),
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    SelectionContainer(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 160.dp, max = 320.dp),
-    )
-
-    Button(
-        onClick = {
-            val selection = fieldValue.selection
-            if (!selection.collapsed) {
-                onAddManual(fieldValue.text.substring(selection.min, selection.max))
-            }
-        },
-        enabled = hasSelection,
-        modifier = Modifier.fillMaxWidth(),
+            .heightIn(max = 320.dp)
+            .verticalScroll(rememberScrollState()),
     ) {
-        Icon(Icons.Filled.Add, contentDescription = null)
-        Spacer(Modifier.width(8.dp))
-        Text(stringResource(R.string.add_to_list))
+        Text(text = uiState.document?.extractedText.orEmpty(), style = DocumentTextStyle)
     }
 }
 

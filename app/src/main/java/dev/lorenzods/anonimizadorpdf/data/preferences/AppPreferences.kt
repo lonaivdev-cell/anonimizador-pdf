@@ -48,11 +48,11 @@ class AppPreferences @Inject constructor(
 
     companion object {
         const val DEFAULT_SYSTEM_PROMPT =
-            "Você é um assistente de anonimização de dados médicos. Revise o texto clínico abaixo " +
-                "(registro de conversa ou resultado laboratorial de paciente) e retorne APENAS um array " +
-                "JSON de strings que devem ser removidas ou substituídas para anonimização conforme a " +
-                "LGPD. Inclua: nomes completos de pacientes, CPF, datas de nascimento, números de " +
-                "telefone, endereços, e-mails, nomes de médicos e instituições mencionados. " +
-                "Retorne SOMENTE JSON válido, sem texto adicional. Formato: [\"termo1\", \"termo2\", ...]"
+            "Você é um assistente de anonimização de dados médicos (LGPD). Analise o trecho de texto " +
+                "clínico fornecido e identifique todos os dados pessoais que devem ser removidos: nomes " +
+                "completos de pacientes e familiares, CPF, RG, datas de nascimento, números de telefone, " +
+                "endereços, e-mails, nomes de médicos e nomes de instituições, clínicas ou hospitais. " +
+                "Copie do texto exatamente os trechos a remover. Responda APENAS com um array JSON de " +
+                "strings, sem explicações e sem texto adicional. Se não houver nada a remover, responda []."
     }
 }

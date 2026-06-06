@@ -65,6 +65,10 @@
     <string name="mode_b_title">Seleção manual</string>
     <string name="thinking">Pensando…</string>
     <string name="generating">Gerando sugestões…</string>
+    <string name="generate">Gerar sugestões</string>
+    <string name="stop">Parar</string>
+    <string name="save">Salvar</string>
+    <string name="edit">Editar</string>
     <string name="apply_selected">Aplicar Selecionados</string>
     <string name="add_to_list">Adicionar à lista</string>
     <string name="suggested_terms">Termos sugeridos</string>
@@ -109,6 +113,7 @@
     <string name="about_repo">Repositório no GitHub</string>
     <string name="about_repo_url">https://github.com/lonaivdev-cell/anonimizador-pdf</string>
     <string name="about_license_title">Licença MIT</string>
+    <string name="about_license_text">Distribuído sob a Licença MIT. Uso pessoal e educacional, sem fins comerciais. O software é fornecido \"como está\", sem garantias de qualquer tipo. Esta é uma ferramenta clínica offline; nenhum dado é enviado para a nuvem.</string>
 
     <!-- Onboarding -->
     <string name="onboarding_skip">Pular</string>

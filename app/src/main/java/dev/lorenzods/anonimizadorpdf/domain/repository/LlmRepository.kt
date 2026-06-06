@@ -1,10 +1,17 @@
 package dev.lorenzods.anonimizadorpdf.domain.repository
 
+import android.net.Uri
 import kotlinx.coroutines.flow.Flow
 
 interface LlmRepository {
     /** True if a model path is configured and the model file exists. */
     suspend fun isModelAvailable(): Boolean
+
+    /**
+     * Copies a picked `.task` model into app-internal storage (MediaPipe requires a filesystem
+     * path, not a SAF content Uri) and returns the absolute path. Replaces any previous model.
+     */
+    suspend fun importModel(uri: Uri): String
 
     /**
      * Streams generated tokens for [prompt]. The returned [Flow] emits partial results as they are

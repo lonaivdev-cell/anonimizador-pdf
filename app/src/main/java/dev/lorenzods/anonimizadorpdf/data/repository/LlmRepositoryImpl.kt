@@ -1,6 +1,8 @@
 package dev.lorenzods.anonimizadorpdf.data.repository
 
 import android.content.Context
+import android.net.Uri
+import android.provider.OpenableColumns
 import android.util.Log
 import com.google.mediapipe.tasks.genai.llminference.LlmInference
 import com.google.mediapipe.tasks.genai.llminference.LlmInference.LlmInferenceOptions
@@ -46,6 +48,27 @@ class LlmRepositoryImpl @Inject constructor(
         val path = preferences.modelPath.first()
         return !path.isNullOrBlank() && File(path).exists()
     }
+
+    override suspend fun importModel(uri: Uri): String = withContext(ioDispatcher) {
+        val dir = File(context.filesDir, "models").apply { mkdirs() }
+        // Single model slot — remove any previously imported model.
+        dir.listFiles()?.forEach { it.delete() }
+        val name = queryDisplayName(uri) ?: "model.task"
+        val dest = File(dir, name.ifBlank { "model.task" })
+        context.contentResolver.openInputStream(uri)?.use { input ->
+            dest.outputStream().use { output -> input.copyTo(output) }
+        } ?: throw IOException("Não foi possível ler o arquivo do modelo")
+        // Force re-init on next inference so the new model is loaded.
+        close()
+        Log.i(TAG, "model imported (${dest.length() / (1024 * 1024)} MB)")
+        dest.absolutePath
+    }
+
+    private fun queryDisplayName(uri: Uri): String? =
+        context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+            val index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+            if (index >= 0 && cursor.moveToFirst()) cursor.getString(index) else null
+        }
 
     private suspend fun ensureEngine(): LlmInference = withContext(ioDispatcher) {
         val path = preferences.modelPath.first()

@@ -15,6 +15,12 @@
         android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="28" />
 
+    <!--
+      Defense in depth: strip INTERNET even if a transitive dependency (e.g. a misbehaving
+      library) tries to merge it in. This app must remain fully offline.
+    -->
+    <uses-permission android:name="android.permission.INTERNET" tools:node="remove" />
+
     <application
         android:name=".AnonimizadorApp"
         android:allowBackup="false"

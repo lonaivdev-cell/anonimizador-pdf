@@ -64,7 +64,6 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.input.TextFieldValue
-import androidx.compose.ui.text.input.getSelectedText
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
@@ -284,7 +283,10 @@ private fun ModeManual(uiState: AnonymizeUiState, onAddManual: (String) -> Unit)
 
     Button(
         onClick = {
-            onAddManual(fieldValue.getSelectedText().text)
+            val selection = fieldValue.selection
+            if (!selection.collapsed) {
+                onAddManual(fieldValue.text.substring(selection.min, selection.max))
+            }
         },
         enabled = hasSelection,
         modifier = Modifier.fillMaxWidth(),

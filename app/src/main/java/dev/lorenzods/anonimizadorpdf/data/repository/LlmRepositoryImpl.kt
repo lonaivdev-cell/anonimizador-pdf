@@ -84,7 +84,6 @@ class LlmRepositoryImpl @Inject constructor(
         val options = LlmInferenceOptions.builder()
             .setModelPath(path)
             .setMaxTokens(MAX_TOKENS)
-            .setMaxTopK(TOP_K)
             .build()
         val created = LlmInference.createFromOptions(context, options)
         engine = created
@@ -97,6 +96,7 @@ class LlmRepositoryImpl @Inject constructor(
         val activeEngine = ensureEngine()
         val sessionOptions = LlmInferenceSessionOptions.builder()
             .setTopK(TOP_K)
+            .setTopP(TOP_P)
             .setTemperature(TEMPERATURE)
             .build()
         val session = LlmInferenceSession.createFromOptions(activeEngine, sessionOptions)
@@ -116,8 +116,14 @@ class LlmRepositoryImpl @Inject constructor(
 
     companion object {
         private const val TAG = "LlmRepository"
-        private const val MAX_TOKENS = 2048
+
+        // Conservative context budget so the engine initializes across small models
+        // (e.g. Gemma 3 1B with ~1280 ekv). The document is chunked to fit this.
+        private const val MAX_TOKENS = 1024
         private const val TOP_K = 40
-        private const val TEMPERATURE = 0.6f
+        private const val TOP_P = 0.95f
+
+        // Low temperature for deterministic, structured (JSON) extraction.
+        private const val TEMPERATURE = 0.3f
     }
 }

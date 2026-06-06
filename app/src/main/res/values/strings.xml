@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Anonimizador PDF</string>
+
+    <!-- Navigation -->
+    <string name="nav_library">Biblioteca</string>
+    <string name="nav_settings">Configurações</string>
+
+    <!-- Common -->
+    <string name="ok">OK</string>
+    <string name="cancel">Cancelar</string>
+    <string name="confirm">Confirmar</string>
+    <string name="retry">Tentar novamente</string>
+    <string name="back">Voltar</string>
+    <string name="close">Fechar</string>
+
+    <!-- Library -->
+    <string name="library_title">Biblioteca</string>
+    <string name="search_hint">Buscar por nome do arquivo</string>
+    <string name="filter_all">TODOS</string>
+    <string name="filter_raw">BRUTO</string>
+    <string name="filter_processed">PROCESSADO</string>
+    <string name="filter_anonymized">ANONIMIZADO</string>
+    <string name="import_pdf">Importar PDF</string>
+    <string name="empty_library_title">Nenhum documento</string>
+    <string name="empty_library_message">Importe um PDF para começar. Toque no botão + abaixo.</string>
+    <string name="delete">Excluir</string>
+    <string name="undo">Desfazer</string>
+    <string name="deleted_snackbar">Documento excluído</string>
+    <string name="select_document">Selecione um documento</string>
+    <string name="select_document_message">Escolha um documento na lista para visualizar o texto.</string>
+
+    <!-- Status badges -->
+    <string name="status_raw">BRUTO</string>
+    <string name="status_processed">PROCESSADO</string>
+    <string name="status_anonymized">ANONIMIZADO</string>
+
+    <!-- Page count -->
+    <plurals name="page_count">
+        <item quantity="one">%d página</item>
+        <item quantity="other">%d páginas</item>
+    </plurals>
+
+    <!-- Extraction -->
+    <string name="extracting">Extraindo texto…</string>
+    <string name="extracting_progress">Extraindo página %1$d de %2$d…</string>
+    <string name="error_no_text">Este PDF não contém texto extraível (pode ser um arquivo escaneado).</string>
+    <string name="error_extraction">Falha ao extrair o texto do PDF.</string>
+    <string name="error_import">Falha ao importar o arquivo.</string>
+
+    <!-- Text viewer -->
+    <string name="viewer_title">Visualizador</string>
+    <string name="copy">Copiar</string>
+    <string name="copied">Texto copiado para a área de transferência</string>
+    <string name="export_txt">Exportar .txt</string>
+    <string name="exported">Arquivo exportado</string>
+    <string name="export_failed">Falha ao exportar o arquivo</string>
+    <string name="suggest_anonymization">Sugerir Anonimização</string>
+    <string name="mark_manually">Marcar Manualmente</string>
+    <string name="empty_text">Sem texto para exibir.</string>
+
+    <!-- Anonymize -->
+    <string name="anonymize_title">Anonimizar</string>
+    <string name="mode_a_title">Sugestão automática (LLM)</string>
+    <string name="mode_b_title">Seleção manual</string>
+    <string name="thinking">Pensando…</string>
+    <string name="generating">Gerando sugestões…</string>
+    <string name="apply_selected">Aplicar Selecionados</string>
+    <string name="add_to_list">Adicionar à lista</string>
+    <string name="suggested_terms">Termos sugeridos</string>
+    <string name="redaction_list">Termos para anonimizar</string>
+    <string name="no_terms">Nenhum termo selecionado ainda.</string>
+    <string name="no_suggestions">Nenhum termo sugerido pelo modelo.</string>
+    <string name="selection_hint">Selecione um trecho do texto e toque em \"Adicionar à lista\".</string>
+    <string name="preview_title">Pré-visualização</string>
+    <string name="preview_subtitle">Os termos abaixo foram substituídos por [ANONIMIZADO].</string>
+    <string name="save_and_export">Salvar e exportar</string>
+    <string name="share">Compartilhar</string>
+    <string name="anonymized_saved">Versão anonimizada salva</string>
+    <string name="redacted_placeholder">[ANONIMIZADO]</string>
+    <string name="error_llm">Falha na inferência do modelo.</string>
+    <string name="regenerate">Gerar novamente</string>
+
+    <!-- No model loaded -->
+    <string name="no_model_title">Nenhum modelo carregado</string>
+    <string name="no_model_message">Para usar a sugestão automática, carregue um modelo LLM (.task) em Configurações.</string>
+    <string name="go_to_settings">Ir para Configurações</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Configurações</string>
+    <string name="settings_section_model">Modelo LLM</string>
+    <string name="settings_model_path">Caminho do modelo</string>
+    <string name="pick_model">Selecionar modelo (.task)</string>
+    <string name="no_model_selected">Nenhum modelo selecionado</string>
+    <string name="settings_section_prompt">Prompt do sistema</string>
+    <string name="settings_prompt_label">Prompt enviado ao modelo</string>
+    <string name="reset_prompt">Restaurar padrão</string>
+    <string name="prompt_saved">Prompt salvo</string>
+    <string name="settings_section_export">Pasta de exportação</string>
+    <string name="pick_folder">Selecionar pasta</string>
+    <string name="no_folder_selected">Nenhuma pasta selecionada</string>
+    <string name="settings_section_data">Dados</string>
+    <string name="delete_all_data">Apagar todos os dados</string>
+    <string name="delete_all_data_title">Apagar todos os dados?</string>
+    <string name="delete_all_data_message">Isso removerá permanentemente todos os documentos importados e versões anonimizadas. Esta ação não pode ser desfeita.</string>
+    <string name="all_data_deleted">Todos os dados foram apagados</string>
+    <string name="settings_section_about">Sobre</string>
+    <string name="about_version">Versão %1$s</string>
+    <string name="about_repo">Repositório no GitHub</string>
+    <string name="about_repo_url">https://github.com/lonaivdev-cell/anonimizador-pdf</string>
+    <string name="about_license_title">Licença MIT</string>
+
+    <!-- Onboarding -->
+    <string name="onboarding_skip">Pular</string>
+    <string name="onboarding_next">Próximo</string>
+    <string name="onboarding_done">Começar</string>
+    <string name="onboarding_1_title">Anonimize PDFs clínicos</string>
+    <string name="onboarding_1_desc">Remova dados sensíveis de pacientes (conforme a LGPD) de registros de conversa e resultados laboratoriais antes de enviá-los a um LLM externo. Tudo funciona offline, no seu dispositivo.</string>
+    <string name="onboarding_2_title">Importe seus PDFs</string>
+    <string name="onboarding_2_desc">Use o botão + na Biblioteca para importar um PDF, ou compartilhe um PDF de outro aplicativo. O texto é extraído automaticamente no dispositivo.</string>
+    <string name="onboarding_3_title">Carregue um modelo LLM</string>
+    <string name="onboarding_3_desc">Para sugestões automáticas de anonimização, baixe um modelo Gemma 3 (.task) e selecione-o em Configurações.</string>
+    <string name="onboarding_3_link">Baixar Gemma 3 (Kaggle)</string>
+    <string name="onboarding_gemma_url">https://www.kaggle.com/models/google/gemma-3/</string>
+
+    <!-- Content descriptions -->
+    <string name="cd_app_icon">Ícone do aplicativo</string>
+    <string name="cd_open_menu">Abrir menu</string>
+    <string name="cd_more_options">Mais opções</string>
+</resources>

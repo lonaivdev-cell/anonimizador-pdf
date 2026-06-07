@@ -24,10 +24,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.windowsizeclass.WindowSizeClass
 import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -52,6 +50,7 @@ private data class TopLevelDestination(
 fun AppShell(
     windowSizeClass: WindowSizeClass,
     sharedPdfUri: Uri?,
+    onSharedConsumed: () -> Unit,
     rootViewModel: RootViewModel = hiltViewModel(),
 ) {
     val onboardingDone by rootViewModel.onboardingDone.collectAsStateWithLifecycle()
@@ -61,21 +60,29 @@ fun AppShell(
         }
 
         false -> OnboardingScreen(onFinish = rootViewModel::completeOnboarding)
-        true -> MainShell(windowSizeClass, sharedPdfUri)
+        true -> MainShell(windowSizeClass, sharedPdfUri, onSharedConsumed)
     }
 }
 
 @Composable
-private fun MainShell(windowSizeClass: WindowSizeClass, sharedPdfUri: Uri?) {
+private fun MainShell(
+    windowSizeClass: WindowSizeClass,
+    sharedPdfUri: Uri?,
+    onSharedConsumed: () -> Unit,
+) {
     val navController = rememberNavController()
     val isExpanded = windowSizeClass.widthSizeClass == WindowWidthSizeClass.Expanded
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
     val isTopLevel = currentRoute == Screen.Library.route || currentRoute == Screen.Settings.route
 
-    // The shared PDF is consumed exactly once.
-    var sharedConsumed by rememberSaveable { mutableStateOf(false) }
-    val pendingSharedUri = if (sharedConsumed) null else sharedPdfUri
+    // A share arriving while the user is on another screen should surface the Library, which owns
+    // the consume logic. The Activity clears the Uri once LibraryScreen imports it.
+    LaunchedEffect(sharedPdfUri, currentRoute) {
+        if (sharedPdfUri != null && currentRoute != null && currentRoute != Screen.Library.route) {
+            navController.navigateTopLevel(Screen.Library.route)
+        }
+    }
 
     val destinations = listOf(
         TopLevelDestination(Screen.Library.route, R.string.nav_library, Icons.AutoMirrored.Filled.MenuBook),
@@ -104,7 +111,7 @@ private fun MainShell(windowSizeClass: WindowSizeClass, sharedPdfUri: Uri?) {
                 }
             },
         ) {
-            AppNavHost(navController, isExpanded, pendingSharedUri, { sharedConsumed = true })
+            AppNavHost(navController, isExpanded, sharedPdfUri, onSharedConsumed)
         }
     } else {
         Scaffold(
@@ -126,8 +133,8 @@ private fun MainShell(windowSizeClass: WindowSizeClass, sharedPdfUri: Uri?) {
             AppNavHost(
                 navController = navController,
                 isExpanded = isExpanded,
-                sharedPdfUri = pendingSharedUri,
-                onSharedConsumed = { sharedConsumed = true },
+                sharedPdfUri = sharedPdfUri,
+                onSharedConsumed = onSharedConsumed,
                 modifier = Modifier.padding(padding),
             )
         }

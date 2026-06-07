@@ -91,14 +91,14 @@
 
     <!-- No model loaded -->
     <string name="no_model_title">Nenhum modelo carregado</string>
-    <string name="no_model_message">Para usar a sugestão automática, carregue um modelo LLM (.task) em Configurações.</string>
+    <string name="no_model_message">Para usar a sugestão automática, carregue um modelo LLM (.task ou .gguf) em Configurações.</string>
     <string name="go_to_settings">Ir para Configurações</string>
 
     <!-- Settings -->
     <string name="settings_title">Configurações</string>
     <string name="settings_section_model">Modelo LLM</string>
     <string name="settings_model_path">Caminho do modelo</string>
-    <string name="pick_model">Selecionar modelo (.task)</string>
+    <string name="pick_model">Selecionar modelo (.task ou .gguf)</string>
     <string name="no_model_selected">Nenhum modelo selecionado</string>
     <string name="settings_section_prompt">Prompt do sistema</string>
     <string name="settings_prompt_label">Prompt enviado ao modelo</string>
@@ -128,7 +128,7 @@
     <string name="onboarding_2_title">Importe seus PDFs</string>
     <string name="onboarding_2_desc">Use o botão + na Biblioteca para importar um PDF, ou compartilhe um PDF de outro aplicativo. O texto é extraído automaticamente no dispositivo.</string>
     <string name="onboarding_3_title">Carregue um modelo LLM</string>
-    <string name="onboarding_3_desc">Para sugestões automáticas de anonimização, baixe um modelo Gemma 3 (.task) e selecione-o em Configurações.</string>
+    <string name="onboarding_3_desc">Para sugestões automáticas de anonimização, baixe um modelo Gemma 3 (.task ou .gguf) e selecione-o em Configurações.</string>
     <string name="onboarding_3_link">Baixar Gemma 3 (Kaggle)</string>
     <string name="onboarding_gemma_url">https://www.kaggle.com/models/google/gemma-3/</string>
 

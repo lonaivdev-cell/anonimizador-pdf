@@ -44,6 +44,10 @@ android {
 
     kotlinOptions {
         jvmTarget = "17"
+        // The llamacpp-kotlin AAR is compiled with a newer Kotlin (metadata mv=2.3) than this
+        // project's pinned compiler (2.0.21). Allow reading its metadata; the binary API it uses
+        // is stable across this gap. Remove if/when the project's Kotlin version catches up.
+        freeCompilerArgs += "-Xskip-metadata-version-check"
     }
 
     buildFeatures {
@@ -57,6 +61,18 @@ android {
             excludes += "/META-INF/DEPENDENCIES"
             excludes += "/META-INF/INDEX.LIST"
         }
+    }
+}
+
+// llamacpp-kotlin transitively pulls newer Kotlin/AndroidX than this project is era-matched to
+// (see CLAUDE.md "Build / version coupling"). Pin those transitives back to the project's versions
+// so the deliberately coupled Kotlin 2.0.21 / compileSdk 35 stack keeps building. The library's
+// inference code references neither appcompat nor material, so its UI transitives are dropped.
+configurations.all {
+    resolutionStrategy {
+        force("org.jetbrains.kotlin:kotlin-stdlib:${libs.versions.kotlin.get()}")
+        force("androidx.core:core-ktx:${libs.versions.coreKtx.get()}")
+        force("androidx.core:core:${libs.versions.coreKtx.get()}")
     }
 }
 
@@ -105,9 +121,18 @@ dependencies {
     // JSON parsing of LLM output
     implementation(libs.kotlinx.serialization.json)
 
-    // On-device LLM (MediaPipe) — exclude Google Play Services transitives (offline app)
+    // On-device LLM (MediaPipe) — handles MediaPipe bundle models (.task / .litertlm).
+    // Exclude Google Play Services transitives (offline app).
     implementation(libs.mediapipe.tasks.genai) {
         exclude(group = "com.google.android.gms")
+    }
+
+    // On-device LLM (llama.cpp) — handles GGUF models. Ships prebuilt native libraries
+    // (arm64-v8a, x86_64); no NDK build required. Drop unused UI transitives that would otherwise
+    // drag the era-matched stack forward (see the resolutionStrategy block above).
+    implementation(libs.llamacpp.kotlin) {
+        exclude(group = "com.google.android.material")
+        exclude(group = "androidx.appcompat")
     }
 
     // PDF text extraction

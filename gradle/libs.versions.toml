@@ -15,6 +15,7 @@ datastore = "1.1.1"
 coroutines = "1.9.0"
 serializationJson = "1.7.3"
 mediapipeGenai = "0.10.24"
+llamacppKotlin = "0.4.0"
 pdfboxAndroid = "2.0.27.0"
 junit = "4.13.2"
 
@@ -55,6 +56,7 @@ kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-cor
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "serializationJson" }
 
 mediapipe-tasks-genai = { group = "com.google.mediapipe", name = "tasks-genai", version.ref = "mediapipeGenai" }
+llamacpp-kotlin = { group = "io.github.ljcamargo", name = "llamacpp-kotlin", version.ref = "llamacppKotlin" }
 pdfbox-android = { group = "com.tom-roush", name = "pdfbox-android", version.ref = "pdfboxAndroid" }
 
 junit = { group = "junit", name = "junit", version.ref = "junit" }

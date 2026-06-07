@@ -8,8 +8,10 @@ interface LlmRepository {
     suspend fun isModelAvailable(): Boolean
 
     /**
-     * Copies a picked `.task` model into app-internal storage (MediaPipe requires a filesystem
-     * path, not a SAF content Uri) and returns the absolute path. Replaces any previous model.
+     * Copies a picked model (`.task`/`.litertlm` for MediaPipe, or `.gguf` for llama.cpp) into
+     * app-internal storage — the engines require a filesystem path, not a SAF content Uri — and
+     * returns the absolute path. The file extension selects the inference engine. Replaces any
+     * previous model.
      */
     suspend fun importModel(uri: Uri): String
 

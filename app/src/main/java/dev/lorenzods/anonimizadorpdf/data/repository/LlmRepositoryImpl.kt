@@ -171,27 +171,32 @@ class LlmRepositoryImpl @Inject constructor(
                 when (event) {
                     is LlamaHelper.LLMEvent.Loaded -> ready.complete(Unit)
                     is LlamaHelper.LLMEvent.Error ->
-                        ready.completeExceptionally(LlmNotReadyException(event.message))
+                        ready.completeExceptionally(IllegalStateException(event.message))
                     else -> Unit
                 }
             }
         }
         try {
-            helper.load(path, CONTEXT_LENGTH) { ready.complete(Unit) }
+            // The wrapper resolves the model through ContentResolver (it Uri.parse()s this string
+            // and opens a file descriptor), so it needs a URI — not a bare filesystem path. The
+            // model lives in app-internal storage, so a file:// URI is what
+            // ContentResolver.openFileDescriptor expects.
+            val modelUri = Uri.fromFile(File(path)).toString()
+            helper.load(modelUri, CONTEXT_LENGTH) { ready.complete(Unit) }
             withTimeout(LOAD_TIMEOUT_MS) { ready.await() }
         } catch (e: TimeoutCancellationException) {
             runCatching { helper.release() }
-            throw LlmNotReadyException("Tempo esgotado ao carregar o modelo GGUF")
-        } catch (e: LlmNotReadyException) {
-            runCatching { helper.release() }
-            throw e
+            throw IllegalStateException(
+                "Tempo esgotado ao carregar o modelo GGUF. O arquivo pode ser grande demais " +
+                    "para a memória do dispositivo.",
+            )
         } catch (e: CancellationException) {
             // Caller cancelled (e.g. navigated away) — release and propagate, don't mask it.
             runCatching { helper.release() }
             throw e
         } catch (e: Exception) {
             runCatching { helper.release() }
-            throw LlmNotReadyException(e.message ?: "Falha ao carregar o modelo GGUF")
+            throw IllegalStateException(e.message ?: "Falha ao carregar o modelo GGUF")
         } finally {
             watcher.cancel()
         }

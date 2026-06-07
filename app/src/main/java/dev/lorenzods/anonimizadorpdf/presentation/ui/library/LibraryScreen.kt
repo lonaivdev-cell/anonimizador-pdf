@@ -5,7 +5,6 @@
 
 package dev.lorenzods.anonimizadorpdf.presentation.ui.library
 
-import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -93,15 +92,11 @@ fun LibraryScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
 
-    val pickPdf = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri != null) {
-            runCatching {
-                context.contentResolver.takePersistableUriPermission(
-                    uri,
-                    Intent.FLAG_GRANT_READ_URI_PERMISSION,
-                )
-            }
-            viewModel.importAndExtract(uri)
+    // Multi-select: the picked PDFs are copied into internal storage immediately, so the temporary
+    // read grant from the picker is sufficient — no persistable permission needed.
+    val pickPdf = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
+        if (uris.isNotEmpty()) {
+            viewModel.importAndExtract(uris)
         }
     }
 
@@ -344,10 +339,19 @@ private fun ExtractionOverlay(state: ExtractionState) {
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 CircularProgressIndicator()
-                val label = if (state.total > 0) {
-                    stringResource(R.string.extracting_progress, state.current, state.total)
-                } else {
-                    stringResource(R.string.extracting)
+                val label = when {
+                    state.docCount > 1 && state.total > 0 -> stringResource(
+                        R.string.extracting_multi_progress,
+                        state.docIndex, state.docCount, state.current, state.total,
+                    )
+
+                    state.docCount > 1 ->
+                        stringResource(R.string.extracting_multi, state.docIndex, state.docCount)
+
+                    state.total > 0 ->
+                        stringResource(R.string.extracting_progress, state.current, state.total)
+
+                    else -> stringResource(R.string.extracting)
                 }
                 Text(label, style = MaterialTheme.typography.bodyMedium)
             }

@@ -103,6 +103,32 @@ O app **não** embute nenhum modelo. Para usar o Modo A (sugestão automática):
    arquivo, não um `content://` Uri).
 4. Volte a um documento e toque em **Sugerir Anonimização**.
 
+### Baixar modelos com o Termux (mantendo o app offline)
+
+O app **nunca** acessa a rede (não há permissão `INTERNET`), então o download é feito por **outro
+app**. O [Termux](https://termux.dev) funciona bem como "baixador": ele tem acesso próprio à
+internet e pode gravar na sua área de armazenamento compartilhado, que o seletor de arquivos do app
+(SAF) consegue ler.
+
+```bash
+# uma única vez:
+pkg install python
+termux-setup-storage              # cria ~/storage apontando para o armazenamento compartilhado
+pip install -U "huggingface_hub[cli]"
+# se o modelo exigir login (modelos "gated"), autentique uma vez — o token fica salvo no Termux,
+# persistindo entre sessões (~/.cache/huggingface):
+huggingface-cli login
+
+# baixar um .gguf para uma pasta compartilhada (NÃO o home privado do Termux):
+huggingface-cli download <org>/<modelo-GGUF> <arquivo>.gguf \
+  --local-dir ~/storage/downloads/modelos
+```
+
+Depois, no app, use **Configurações → Modelo LLM → Selecionar modelo** e navegue até
+`Downloads/modelos` para escolher o `.gguf`. O importante é gravar em uma pasta **compartilhada**
+(ex.: `~/storage/downloads`), e não no diretório privado do Termux (`/data/data/com.termux/...`),
+que o SAF não enxerga.
+
 O **Modo B (manual)** funciona sem nenhum modelo.
 
 ## Estrutura

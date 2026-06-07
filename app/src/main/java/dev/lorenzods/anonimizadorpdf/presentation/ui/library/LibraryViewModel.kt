@@ -26,7 +26,12 @@ import javax.inject.Inject
 
 enum class StatusFilter { ALL, RAW, PROCESSED, ANONYMIZED }
 
-data class ExtractionState(val current: Int, val total: Int)
+data class ExtractionState(
+    val current: Int,
+    val total: Int,
+    val docIndex: Int = 1,
+    val docCount: Int = 1,
+)
 
 data class LibraryUiState(
     val documents: List<PdfDocument> = emptyList(),
@@ -79,24 +84,39 @@ class LibraryViewModel @Inject constructor(
         filter.value = value
     }
 
-    fun importAndExtract(uri: Uri) {
+    fun importAndExtract(uri: Uri) = importAndExtract(listOf(uri))
+
+    /**
+     * Imports and extracts one or more PDFs **sequentially** — each file is fully parsed before the
+     * next begins — so memory and CPU stay bounded regardless of how many are selected at once. A
+     * single file that fails to import/extract is reported but does not abort the rest of the batch.
+     */
+    fun importAndExtract(uris: List<Uri>) {
+        if (uris.isEmpty()) return
         viewModelScope.launch {
-            val id = try {
-                importPdf(uri, null)
-            } catch (e: Exception) {
-                _events.emit(LibraryEvent.Message(R.string.error_import))
-                return@launch
-            }
-            extractText(id).collect { progress ->
-                when (progress) {
-                    is ExtractionProgress.InProgress ->
-                        extraction.value = ExtractionState(progress.currentPage, progress.totalPages)
+            val total = uris.size
+            uris.forEachIndexed { index, uri ->
+                val docNumber = index + 1
+                val id = try {
+                    importPdf(uri, null)
+                } catch (e: Exception) {
+                    _events.emit(LibraryEvent.Message(R.string.error_import))
+                    return@forEachIndexed
+                }
+                extractText(id).collect { progress ->
+                    when (progress) {
+                        is ExtractionProgress.InProgress ->
+                            extraction.value = ExtractionState(
+                                current = progress.currentPage,
+                                total = progress.totalPages,
+                                docIndex = docNumber,
+                                docCount = total,
+                            )
 
-                    is ExtractionProgress.Success -> extraction.value = null
+                        // Keep the overlay up; it is cleared once the whole batch finishes.
+                        is ExtractionProgress.Success -> Unit
 
-                    is ExtractionProgress.Error -> {
-                        extraction.value = null
-                        _events.emit(
+                        is ExtractionProgress.Error -> _events.emit(
                             LibraryEvent.Message(
                                 if (progress.type == ExtractionError.NO_TEXT) {
                                     R.string.error_no_text
@@ -108,6 +128,7 @@ class LibraryViewModel @Inject constructor(
                     }
                 }
             }
+            extraction.value = null
         }
     }
 

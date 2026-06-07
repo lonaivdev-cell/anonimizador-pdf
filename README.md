@@ -87,14 +87,20 @@ O APK publicado é assinado com a chave de debug (instalável por sideload).
 
 O app **não** embute nenhum modelo. Para usar o Modo A (sugestão automática):
 
-1. Obtenha um modelo MediaPipe LLM no formato **`.task`** (ex.: Gemma 3 1B/4B *instruction-tuned*,
-   quantizado). Página oficial do Gemma 3: <https://www.kaggle.com/models/google/gemma-3/>.
+1. Obtenha um modelo no formato **`.task`** (MediaPipe) **ou `.gguf`** (llama.cpp) — ex.: Gemma 3
+   1B/4B *instruction-tuned*, quantizado. O app detecta o motor de inferência pela extensão do
+   arquivo, então não é preciso caçar especificamente arquivos `.task`: um `.gguf` quantizado
+   (ex.: `Q4_K_M`) funciona diretamente. Página oficial do Gemma 3:
+   <https://www.kaggle.com/models/google/gemma-3/>; modelos `.gguf` são facilmente encontrados no
+   Hugging Face.
    > Caso o modelo seja distribuído via Continuum a partir da página de *releases* do GitHub,
    > nenhuma autenticação/certificação do Google é necessária.
-2. Transfira o arquivo `.task` para o armazenamento do dispositivo (ex.: pasta **Downloads**).
-3. No app, abra **Configurações → Modelo LLM → Selecionar modelo (.task)** e escolha o arquivo.
-   O modelo é copiado para o armazenamento interno do app (o MediaPipe exige um caminho de arquivo,
-   não um `content://` Uri).
+   > Observação: os binários `.gguf` empacotam apenas as ABIs `arm64-v8a` e `x86_64` (cobrindo
+   > celulares reais e emuladores 64 bits).
+2. Transfira o arquivo `.task`/`.gguf` para o armazenamento do dispositivo (ex.: pasta **Downloads**).
+3. No app, abra **Configurações → Modelo LLM → Selecionar modelo (.task ou .gguf)** e escolha o
+   arquivo. O modelo é copiado para o armazenamento interno do app (os motores exigem um caminho de
+   arquivo, não um `content://` Uri).
 4. Volte a um documento e toque em **Sugerir Anonimização**.
 
 O **Modo B (manual)** funciona sem nenhum modelo.
@@ -103,7 +109,7 @@ O **Modo B (manual)** funciona sem nenhum modelo.
 
 ```
 app/src/main/java/dev/lorenzods/anonimizadorpdf/
-├── data/            # Room (db), DataStore (preferences), repositórios (pdfbox + MediaPipe)
+├── data/            # Room (db), DataStore (preferences), repositórios (pdfbox + MediaPipe/llama.cpp)
 ├── domain/          # modelos, interfaces de repositório, use cases (redação + parser puro)
 ├── presentation/    # navigation (shell adaptativo + NavGraph), theme, ui/{library,viewer,
 │                    #   anonymize,settings,onboarding}

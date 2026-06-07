@@ -29,7 +29,7 @@ This app handles sensitive patient data. Do not weaken any of these:
 MVVM + Clean Architecture, single Activity, Jetpack Compose.
 
 ```
-data/        Room (db), DataStore (preferences), repository impls (pdfbox + MediaPipe)
+data/        Room (db), DataStore (preferences), repository impls (pdfbox + MediaPipe/llama.cpp)
 domain/      models, repository interfaces, use cases
 presentation/ navigation (adaptive shell + NavGraph), theme, ui/{library,viewer,anonymize,settings,onboarding}
 di/          Hilt modules (Database, Repository, UseCase)
@@ -71,5 +71,19 @@ runners, which have the Android SDK and full network access. CI runs `assembleDe
 
 ## Loading an LLM model
 
-The app does not bundle a model. The user downloads a MediaPipe `.task` model (e.g. Gemma 3) and
-picks it in **Settings → Modelo LLM**. See `README.md`.
+The app does not bundle a model. The user downloads a model (e.g. Gemma 3) and picks it in
+**Settings → Modelo LLM**. See `README.md`.
+
+Two inference engines are supported, selected by the imported file's **extension** in
+`LlmRepositoryImpl`:
+
+- **`.task` / `.litertlm`** → MediaPipe LLM Inference (`com.google.mediapipe:tasks-genai`).
+- **`.gguf`** → llama.cpp via `io.github.ljcamargo:llamacpp-kotlin` (Apache-2.0). This AAR ships
+  **prebuilt** native libraries (`arm64-v8a`, `x86_64`) — no NDK is needed in CI. It transitively
+  pulls a newer Kotlin/AndroidX than the era-matched stack, so `app/build.gradle.kts` pins
+  `kotlin-stdlib`/`core-ktx` back, excludes its unused `appcompat`/`material` UI transitives, and
+  adds `-Xskip-metadata-version-check` (the AAR's Kotlin metadata is `mv=2.3`; the project compiler
+  is 2.0.21). Keep these guards if bumping the library — they protect the version coupling above.
+
+The offline guarantee is unchanged: no `INTERNET` permission, so neither engine can make network
+calls regardless of the model format.

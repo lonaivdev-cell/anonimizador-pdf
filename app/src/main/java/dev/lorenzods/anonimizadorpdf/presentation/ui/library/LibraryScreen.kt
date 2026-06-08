@@ -19,21 +19,23 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.HistoryEdu
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.SearchOff
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -60,6 +62,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -70,8 +73,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.lorenzods.anonimizadorpdf.R
 import dev.lorenzods.anonimizadorpdf.domain.model.PdfDocument
 import dev.lorenzods.anonimizadorpdf.presentation.ui.common.EmptyState
-import dev.lorenzods.anonimizadorpdf.presentation.ui.common.StatusChip
-import dev.lorenzods.anonimizadorpdf.presentation.ui.viewer.TextViewerPane
+import dev.lorenzods.anonimizadorpdf.presentation.ui.common.StatusPill
+import dev.lorenzods.anonimizadorpdf.presentation.ui.viewer.DocumentViewer
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -152,7 +155,7 @@ fun LibraryScreen(
             AnimatedPane {
                 val id = selectedDocId
                 if (id != null) {
-                    TextViewerPane(
+                    DocumentViewer(
                         documentId = id,
                         showBack = navigator.canNavigateBack(),
                         onBack = { scope.launch { navigator.navigateBack() } },
@@ -160,6 +163,7 @@ fun LibraryScreen(
                     )
                 } else {
                     EmptyState(
+                        modifier = Modifier.fillMaxSize(),
                         icon = Icons.AutoMirrored.Filled.MenuBook,
                         title = stringResource(R.string.select_document),
                         message = stringResource(R.string.select_document_message),
@@ -190,6 +194,7 @@ private fun LibraryListPane(
                     leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
                     placeholder = { Text(stringResource(R.string.search_hint)) },
                     singleLine = true,
+                    shape = RoundedCornerShape(16.dp),
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 4.dp),
@@ -214,19 +219,32 @@ private fun LibraryListPane(
             when {
                 uiState.loading -> CircularProgressIndicator(Modifier.align(Alignment.Center))
 
+                uiState.documents.isEmpty() && uiState.query.isBlank() && uiState.filter == StatusFilter.ALL ->
+                    EmptyState(
+                        modifier = Modifier.fillMaxSize(),
+                        icon = Icons.Filled.Description,
+                        title = stringResource(R.string.empty_library_title),
+                        message = stringResource(R.string.empty_library_message),
+                        actionLabel = stringResource(R.string.import_pdf),
+                        onAction = onImportClick,
+                    )
+
                 uiState.documents.isEmpty() -> EmptyState(
-                    icon = Icons.Filled.Description,
-                    title = stringResource(R.string.empty_library_title),
-                    message = stringResource(R.string.empty_library_message),
+                    modifier = Modifier.fillMaxSize(),
+                    icon = Icons.Filled.SearchOff,
+                    title = stringResource(R.string.empty_filter_title),
+                    message = stringResource(R.string.empty_filter_message),
                 )
 
                 else -> LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(bottom = 96.dp),
+                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     items(uiState.documents, key = { it.id }) { doc ->
                         SwipeableDocumentRow(
                             document = doc,
+                            versionCount = uiState.versionCounts[doc.id] ?: 0,
                             onClick = { onOpen(doc.id) },
                             onDelete = { onDelete(doc) },
                         )
@@ -247,7 +265,7 @@ private fun FilterChipsRow(selected: StatusFilter, onFilterChange: (StatusFilter
             .padding(horizontal = 16.dp, vertical = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        val labels = mapOf(
+        val labels = listOf(
             StatusFilter.ALL to R.string.filter_all,
             StatusFilter.RAW to R.string.filter_raw,
             StatusFilter.PROCESSED to R.string.filter_processed,
@@ -266,6 +284,7 @@ private fun FilterChipsRow(selected: StatusFilter, onFilterChange: (StatusFilter
 @Composable
 private fun SwipeableDocumentRow(
     document: PdfDocument,
+    versionCount: Int,
     onClick: () -> Unit,
     onDelete: () -> Unit,
 ) {
@@ -285,6 +304,7 @@ private fun SwipeableDocumentRow(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
+                    .clip(RoundedCornerShape(20.dp))
                     .background(MaterialTheme.colorScheme.errorContainer)
                     .padding(horizontal = 24.dp),
                 contentAlignment = Alignment.CenterEnd,
@@ -297,31 +317,69 @@ private fun SwipeableDocumentRow(
             }
         },
     ) {
-        DocumentRow(document, onClick)
+        DocumentCard(document, versionCount, onClick)
     }
 }
 
 @Composable
-private fun DocumentRow(document: PdfDocument, onClick: () -> Unit) {
-    Surface {
-        ListItem(
-            headlineContent = {
-                Text(document.originalFilename, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            },
-            supportingContent = {
-                val pages = pluralStringResource(
-                    R.plurals.page_count,
-                    document.pageCount,
-                    document.pageCount,
+private fun DocumentCard(document: PdfDocument, versionCount: Int, onClick: () -> Unit) {
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        shape = RoundedCornerShape(20.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(20.dp))
+            .clickable(onClick = onClick),
+    ) {
+        Row(
+            modifier = Modifier.padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            Surface(shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.surfaceContainerHighest) {
+                Icon(
+                    Icons.Filled.PictureAsPdf,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier
+                        .padding(12.dp)
+                        .size(24.dp),
                 )
-                Text("${formatDate(document.importTimestamp)} · $pages")
-            },
-            leadingContent = { Icon(Icons.Filled.PictureAsPdf, contentDescription = null) },
-            trailingContent = { StatusChip(document.status) },
-            modifier = Modifier.clickable(onClick = onClick),
-        )
+            }
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    text = document.originalFilename,
+                    style = MaterialTheme.typography.bodyLarge,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                val pages = pluralStringResource(R.plurals.page_count, document.pageCount, document.pageCount)
+                Text(
+                    text = "${formatDate(document.importTimestamp)} · $pages",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    StatusPill(document.status)
+                    if (versionCount > 0) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                            Icon(
+                                Icons.Filled.HistoryEdu,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(14.dp),
+                            )
+                            Text(
+                                text = versionCount.toString(),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+            }
+        }
     }
-    HorizontalDivider()
 }
 
 @Composable
@@ -332,11 +390,11 @@ private fun ExtractionOverlay(state: ExtractionState) {
             .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.4f)),
         contentAlignment = Alignment.Center,
     ) {
-        Surface(shape = MaterialTheme.shapes.large, tonalElevation = 4.dp) {
+        Surface(shape = RoundedCornerShape(24.dp), tonalElevation = 4.dp) {
             Column(
-                modifier = Modifier.padding(24.dp),
+                modifier = Modifier.padding(28.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
                 CircularProgressIndicator()
                 val label = when {

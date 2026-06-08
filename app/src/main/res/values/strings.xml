@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Anonimizador PDF</string>
+    <string name="app_tagline">Privacidade clínica, no seu dispositivo</string>
 
     <!-- Navigation -->
+    <string name="nav_home">Início</string>
     <string name="nav_library">Biblioteca</string>
     <string name="nav_settings">Configurações</string>
 
@@ -13,32 +15,69 @@
     <string name="retry">Tentar novamente</string>
     <string name="back">Voltar</string>
     <string name="close">Fechar</string>
+    <string name="badge_offline">100% offline</string>
+
+    <!-- Home / Dashboard -->
+    <string name="home_greeting_morning">Bom dia</string>
+    <string name="home_greeting_afternoon">Boa tarde</string>
+    <string name="home_greeting_evening">Boa noite</string>
+    <string name="home_privacy_title">Seus dados nunca saem daqui</string>
+    <string name="home_privacy_desc">Importação, extração e anonimização acontecem 100% no dispositivo. Nenhuma conexão com a internet, nenhum dado na nuvem.</string>
+    <string name="home_stat_documents">Documentos</string>
+    <string name="home_stat_anonymized">Anonimizados</string>
+    <string name="home_stat_terms">Termos removidos</string>
+    <string name="home_quick_actions">Ações rápidas</string>
+    <string name="home_action_import">Importar PDF</string>
+    <string name="home_action_import_desc">Selecione um ou mais arquivos</string>
+    <string name="home_recent">Documentos recentes</string>
+    <string name="home_recent_empty">Importe seu primeiro PDF para começar.</string>
+    <string name="home_model_ready">Modelo de IA pronto</string>
+    <string name="home_model_ready_desc">A sugestão automática de anonimização está disponível.</string>
+    <string name="home_model_missing">Nenhum modelo de IA carregado</string>
+    <string name="home_model_missing_desc">Carregue um modelo para habilitar sugestões automáticas. A seleção manual funciona sem modelo.</string>
+    <string name="home_model_configure">Configurar</string>
 
     <!-- Library -->
     <string name="library_title">Biblioteca</string>
     <string name="search_hint">Buscar por nome do arquivo</string>
-    <string name="filter_all">TODOS</string>
-    <string name="filter_raw">BRUTO</string>
-    <string name="filter_processed">PROCESSADO</string>
-    <string name="filter_anonymized">ANONIMIZADO</string>
+    <string name="filter_all">Todos</string>
+    <string name="filter_raw">Bruto</string>
+    <string name="filter_processed">Processado</string>
+    <string name="filter_anonymized">Anonimizado</string>
     <string name="import_pdf">Importar PDF</string>
     <string name="empty_library_title">Nenhum documento</string>
-    <string name="empty_library_message">Importe um PDF para começar. Toque no botão + abaixo.</string>
+    <string name="empty_library_message">Importe um PDF para começar. Toque no botão Importar.</string>
+    <string name="empty_filter_title">Nada por aqui</string>
+    <string name="empty_filter_message">Nenhum documento corresponde a este filtro ou busca.</string>
     <string name="delete">Excluir</string>
     <string name="undo">Desfazer</string>
     <string name="deleted_snackbar">Documento excluído</string>
     <string name="select_document">Selecione um documento</string>
     <string name="select_document_message">Escolha um documento na lista para visualizar o texto.</string>
+    <string name="versions_badge">%1$d versão</string>
+    <string name="versions_badge_plural">%1$d versões</string>
 
     <!-- Status badges -->
-    <string name="status_raw">BRUTO</string>
-    <string name="status_processed">PROCESSADO</string>
-    <string name="status_anonymized">ANONIMIZADO</string>
+    <string name="status_raw">Bruto</string>
+    <string name="status_processed">Processado</string>
+    <string name="status_anonymized">Anonimizado</string>
 
     <!-- Page count -->
     <plurals name="page_count">
         <item quantity="one">%d página</item>
         <item quantity="other">%d páginas</item>
+    </plurals>
+    <plurals name="word_count">
+        <item quantity="one">%d palavra</item>
+        <item quantity="other">%d palavras</item>
+    </plurals>
+    <plurals name="term_count">
+        <item quantity="one">%d termo</item>
+        <item quantity="other">%d termos</item>
+    </plurals>
+    <plurals name="version_count">
+        <item quantity="one">%d versão anonimizada</item>
+        <item quantity="other">%d versões anonimizadas</item>
     </plurals>
 
     <!-- Extraction -->
@@ -52,38 +91,54 @@
 
     <!-- Text viewer -->
     <string name="viewer_title">Visualizador</string>
+    <string name="viewer_tab_original">Original</string>
+    <string name="viewer_tab_versions">Versões</string>
+    <string name="viewer_meta">%1$s · %2$s</string>
     <string name="copy">Copiar</string>
     <string name="copied">Texto copiado para a área de transferência</string>
     <string name="export_txt">Exportar .txt</string>
     <string name="exported">Arquivo exportado</string>
     <string name="export_failed">Falha ao exportar o arquivo</string>
-    <string name="suggest_anonymization">Sugerir Anonimização</string>
-    <string name="mark_manually">Marcar Manualmente</string>
+    <string name="suggest_anonymization">Sugerir anonimização</string>
+    <string name="mark_manually">Marcar manualmente</string>
     <string name="empty_text">Sem texto para exibir.</string>
+    <string name="versions_empty_title">Nenhuma versão anonimizada</string>
+    <string name="versions_empty_message">Anonimize este documento para criar e guardar versões aqui.</string>
+    <string name="version_created">Criada em %1$s</string>
+    <string name="version_open">Abrir</string>
+    <string name="version_share">Compartilhar</string>
+    <string name="version_delete">Excluir versão</string>
+    <string name="version_deleted">Versão excluída</string>
+    <string name="version_preview_title">Versão anonimizada</string>
 
     <!-- Anonymize -->
     <string name="anonymize_title">Anonimizar</string>
-    <string name="mode_a_title">Sugestão automática (LLM)</string>
-    <string name="mode_b_title">Seleção manual</string>
-    <string name="thinking">Pensando…</string>
+    <string name="mode_a_title">Automático (IA)</string>
+    <string name="mode_b_title">Manual</string>
+    <string name="thinking">Analisando…</string>
     <string name="generating">Gerando sugestões…</string>
     <string name="generate">Gerar sugestões</string>
     <string name="stop">Parar</string>
     <string name="save">Salvar</string>
     <string name="edit">Editar</string>
-    <string name="apply_selected">Aplicar Selecionados</string>
+    <string name="apply_selected">Pré-visualizar resultado</string>
     <string name="add_to_list">Adicionar à lista</string>
     <string name="suggested_terms">Termos sugeridos</string>
     <string name="redaction_list">Termos para anonimizar</string>
-    <string name="no_terms">Nenhum termo selecionado ainda.</string>
-    <string name="no_suggestions">Nenhum termo sugerido pelo modelo.</string>
+    <string name="no_terms">Toque nas palavras do texto abaixo para marcá-las, ou digite um termo.</string>
+    <string name="no_suggestions">Nenhum termo sugerido ainda. Toque em \"Gerar sugestões\".</string>
     <string name="selection_hint">Selecione um trecho do texto e toque em \"Adicionar à lista\".</string>
-    <string name="manual_hint">Digite ou cole um termo a remover (você pode copiá-lo do texto abaixo) e toque em Adicionar.</string>
+    <string name="manual_hint">Toque nas palavras para marcá-las, ou digite um termo e adicione.</string>
+    <string name="tap_to_redact_hint">Toque em qualquer palavra do texto para marcá-la (toque de novo para desmarcar).</string>
     <string name="term_to_remove">Termo a remover</string>
-    <string name="document_text_label">Texto do documento (toque e segure para selecionar e copiar)</string>
+    <string name="document_text_label">Texto do documento</string>
     <string name="add">Adicionar</string>
+    <string name="clear_all">Limpar</string>
+    <string name="select_all_suggestions">Selecionar todos</string>
+    <string name="redactions_selected">%1$d selecionados</string>
     <string name="preview_title">Pré-visualização</string>
-    <string name="preview_subtitle">Os termos abaixo foram substituídos por [ANONIMIZADO].</string>
+    <string name="preview_subtitle">Os termos marcados foram substituídos por [ANONIMIZADO].</string>
+    <string name="preview_summary">%1$s removidos · %2$d ocorrências</string>
     <string name="save_and_export">Salvar e exportar</string>
     <string name="share">Compartilhar</string>
     <string name="anonymized_saved">Versão anonimizada salva</string>
@@ -91,17 +146,34 @@
     <string name="error_llm">Falha na inferência do modelo.</string>
     <string name="regenerate">Gerar novamente</string>
 
+    <!-- Redaction categories -->
+    <string name="category_name">Nomes</string>
+    <string name="category_document">Documentos</string>
+    <string name="category_contact">Contato</string>
+    <string name="category_date">Datas</string>
+    <string name="category_address">Endereços</string>
+    <string name="category_organization">Instituições</string>
+    <string name="category_other">Outros</string>
+
     <!-- No model loaded -->
     <string name="no_model_title">Nenhum modelo carregado</string>
-    <string name="no_model_message">Para usar a sugestão automática, carregue um modelo LLM (.task ou .gguf) em Configurações.</string>
+    <string name="no_model_message">Para usar a sugestão automática, carregue um modelo LLM (.task ou .gguf) em Configurações. Você ainda pode marcar termos manualmente.</string>
     <string name="go_to_settings">Ir para Configurações</string>
 
     <!-- Settings -->
     <string name="settings_title">Configurações</string>
-    <string name="settings_section_model">Modelo LLM</string>
+    <string name="settings_section_appearance">Aparência</string>
+    <string name="theme_mode">Tema</string>
+    <string name="theme_system">Sistema</string>
+    <string name="theme_light">Claro</string>
+    <string name="theme_dark">Escuro</string>
+    <string name="dynamic_color">Cores dinâmicas</string>
+    <string name="dynamic_color_desc">Usar as cores do papel de parede (Android 12+).</string>
+    <string name="settings_section_model">Modelo de IA</string>
     <string name="settings_model_path">Caminho do modelo</string>
     <string name="pick_model">Selecionar modelo (.task ou .gguf)</string>
     <string name="no_model_selected">Nenhum modelo selecionado</string>
+    <string name="model_loaded">Modelo carregado</string>
     <string name="settings_section_prompt">Prompt do sistema</string>
     <string name="settings_prompt_label">Prompt enviado ao modelo</string>
     <string name="reset_prompt">Restaurar padrão</string>
@@ -120,17 +192,21 @@
     <string name="about_repo_url">https://github.com/lonaivdev-cell/anonimizador-pdf</string>
     <string name="about_license_title">Licença MIT</string>
     <string name="about_license_text">Distribuído sob a Licença MIT. Uso pessoal e educacional, sem fins comerciais. O software é fornecido \"como está\", sem garantias de qualquer tipo. Esta é uma ferramenta clínica offline; nenhum dado é enviado para a nuvem.</string>
+    <string name="replay_onboarding">Rever introdução</string>
 
     <!-- Onboarding -->
     <string name="onboarding_skip">Pular</string>
     <string name="onboarding_next">Próximo</string>
+    <string name="onboarding_back">Voltar</string>
     <string name="onboarding_done">Começar</string>
     <string name="onboarding_1_title">Anonimize PDFs clínicos</string>
     <string name="onboarding_1_desc">Remova dados sensíveis de pacientes (conforme a LGPD) de registros de conversa e resultados laboratoriais antes de enviá-los a um LLM externo. Tudo funciona offline, no seu dispositivo.</string>
     <string name="onboarding_2_title">Importe seus PDFs</string>
-    <string name="onboarding_2_desc">Use o botão + na Biblioteca para importar um PDF, ou compartilhe um PDF de outro aplicativo. O texto é extraído automaticamente no dispositivo.</string>
-    <string name="onboarding_3_title">Carregue um modelo LLM</string>
-    <string name="onboarding_3_desc">Para sugestões automáticas de anonimização, baixe um modelo Gemma 3 (.task ou .gguf) e selecione-o em Configurações.</string>
+    <string name="onboarding_2_desc">Use o botão Importar na Biblioteca, ou compartilhe um PDF de outro aplicativo. O texto é extraído automaticamente no dispositivo.</string>
+    <string name="onboarding_3_title">Marque e anonimize</string>
+    <string name="onboarding_3_desc">Toque nas palavras para removê-las, ou deixe um modelo de IA sugerir os dados sensíveis. Você confirma tudo antes de exportar.</string>
+    <string name="onboarding_4_title">Carregue um modelo de IA</string>
+    <string name="onboarding_4_desc">Para sugestões automáticas, baixe um modelo Gemma 3 (.task ou .gguf) e selecione-o em Configurações. Opcional — a marcação manual funciona sem modelo.</string>
     <string name="onboarding_3_link">Baixar Gemma 3 (Kaggle)</string>
     <string name="onboarding_gemma_url">https://www.kaggle.com/models/google/gemma-3/</string>
 

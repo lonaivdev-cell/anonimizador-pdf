@@ -5,8 +5,6 @@
 
 package dev.lorenzods.anonimizadorpdf.presentation.ui.anonymize
 
-import android.content.Context
-import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -17,13 +15,12 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -33,8 +30,8 @@ import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.TouchApp
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
@@ -49,7 +46,9 @@ import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -61,20 +60,20 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
-import androidx.core.content.FileProvider
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.lorenzods.anonimizadorpdf.R
+import dev.lorenzods.anonimizadorpdf.domain.model.RedactionCategory
 import dev.lorenzods.anonimizadorpdf.domain.usecase.ApplyRedactionsUseCase
+import dev.lorenzods.anonimizadorpdf.presentation.theme.AppTheme
 import dev.lorenzods.anonimizadorpdf.presentation.theme.DocumentTextStyle
+import dev.lorenzods.anonimizadorpdf.presentation.ui.common.InfoBanner
+import dev.lorenzods.anonimizadorpdf.presentation.ui.viewer.highlightPlaceholders
+import dev.lorenzods.anonimizadorpdf.presentation.ui.viewer.shareText
 import kotlinx.coroutines.launch
-import java.io.File
 
 @Composable
 fun AnonymizeScreen(
@@ -113,6 +112,8 @@ fun AnonymizeScreen(
         }
     }
 
+    val preview = uiState.previewText
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -124,6 +125,11 @@ fun AnonymizeScreen(
                 },
             )
         },
+        bottomBar = {
+            if (preview == null && uiState.document != null) {
+                ApplyBar(count = uiState.selectedCount, onApply = viewModel::applyRedactions)
+            }
+        },
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
         Box(
@@ -131,14 +137,14 @@ fun AnonymizeScreen(
                 .fillMaxSize()
                 .padding(padding),
         ) {
-            val preview = uiState.previewText
             if (preview != null) {
                 PreviewContent(
                     previewText = preview,
+                    selectedCount = uiState.selectedCount,
                     onEdit = viewModel::dismissPreview,
                     onSave = viewModel::save,
                     onExport = { exportLauncher.launch(exportName()) },
-                    onShare = { scope.launch { shareTextFile(context, exportName(), preview) } },
+                    onShare = { scope.launch { shareText(context, exportName(), preview) } },
                 )
             } else {
                 EditContent(
@@ -147,11 +153,34 @@ fun AnonymizeScreen(
                     onGenerate = viewModel::generate,
                     onStop = viewModel::stopGenerating,
                     onToggleChip = viewModel::toggleChip,
+                    onToggleWord = viewModel::toggleWord,
                     onAddManual = viewModel::addManualTerm,
-                    onApply = viewModel::applyRedactions,
+                    onSelectAll = viewModel::selectAll,
+                    onClearAll = viewModel::clearAll,
                     onNavigateToSettings = onNavigateToSettings,
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun ApplyBar(count: Int, onApply: () -> Unit) {
+    Surface(tonalElevation = 3.dp, color = MaterialTheme.colorScheme.surfaceContainer) {
+        Button(
+            onClick = onApply,
+            enabled = count > 0,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+        ) {
+            Text(
+                if (count > 0) {
+                    stringResource(R.string.apply_selected) + "  ·  $count"
+                } else {
+                    stringResource(R.string.apply_selected)
+                },
+            )
         }
     }
 }
@@ -163,8 +192,10 @@ private fun EditContent(
     onGenerate: () -> Unit,
     onStop: () -> Unit,
     onToggleChip: (String) -> Unit,
+    onToggleWord: (String) -> Unit,
     onAddManual: (String) -> Unit,
-    onApply: () -> Unit,
+    onSelectAll: () -> Unit,
+    onClearAll: () -> Unit,
     onNavigateToSettings: () -> Unit,
 ) {
     Column(
@@ -189,16 +220,14 @@ private fun EditContent(
 
         when (uiState.mode) {
             AnonymizeMode.AUTO -> ModeAuto(uiState, onGenerate, onStop, onNavigateToSettings)
-            AnonymizeMode.MANUAL -> ModeManual(uiState, onAddManual)
+            AnonymizeMode.MANUAL -> ModeManual(onAddManual)
         }
 
-        ChipsSection(uiState, onToggleChip)
+        ChipsSection(uiState, onToggleChip, onSelectAll, onClearAll)
 
-        Button(
-            onClick = onApply,
-            enabled = uiState.selectedTerms.isNotEmpty(),
-            modifier = Modifier.fillMaxWidth(),
-        ) { Text(stringResource(R.string.apply_selected)) }
+        DocumentSection(uiState, onToggleWord)
+
+        Spacer(Modifier.size(8.dp))
     }
 }
 
@@ -210,10 +239,22 @@ private fun ModeAuto(
     onNavigateToSettings: () -> Unit,
 ) {
     if (!uiState.modelAvailable) {
-        Card(Modifier.fillMaxWidth()) {
+        Surface(
+            color = MaterialTheme.colorScheme.tertiaryContainer,
+            shape = RoundedCornerShape(16.dp),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(stringResource(R.string.no_model_title), style = MaterialTheme.typography.titleMedium)
-                Text(stringResource(R.string.no_model_message), style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    stringResource(R.string.no_model_title),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onTertiaryContainer,
+                )
+                Text(
+                    stringResource(R.string.no_model_message),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onTertiaryContainer,
+                )
                 FilledTonalButton(onClick = onNavigateToSettings) {
                     Icon(Icons.Filled.Settings, contentDescription = null)
                     Spacer(Modifier.width(8.dp))
@@ -235,7 +276,11 @@ private fun ModeAuto(
     }
 
     if (uiState.generating) {
-        Card(Modifier.fillMaxWidth()) {
+        Surface(
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            shape = RoundedCornerShape(16.dp),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
@@ -251,7 +296,7 @@ private fun ModeAuto(
                         style = DocumentTextStyle,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .heightIn(max = 200.dp)
+                            .heightIn(max = 160.dp)
                             .verticalScroll(rememberScrollState()),
                     )
                 }
@@ -266,10 +311,8 @@ private fun ModeAuto(
 }
 
 @Composable
-private fun ModeManual(uiState: AnonymizeUiState, onAddManual: (String) -> Unit) {
+private fun ModeManual(onAddManual: (String) -> Unit) {
     var term by remember { mutableStateOf("") }
-
-    Text(stringResource(R.string.manual_hint), style = MaterialTheme.typography.bodyMedium)
 
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -280,6 +323,7 @@ private fun ModeManual(uiState: AnonymizeUiState, onAddManual: (String) -> Unit)
             onValueChange = { term = it },
             label = { Text(stringResource(R.string.term_to_remove)) },
             singleLine = true,
+            shape = RoundedCornerShape(14.dp),
             modifier = Modifier.weight(1f),
         )
         Button(
@@ -294,34 +338,54 @@ private fun ModeManual(uiState: AnonymizeUiState, onAddManual: (String) -> Unit)
             Text(stringResource(R.string.add))
         }
     }
-
-    Text(
-        text = stringResource(R.string.document_text_label),
-        style = MaterialTheme.typography.labelMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
-    SelectionContainer(
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(max = 320.dp)
-            .verticalScroll(rememberScrollState()),
-    ) {
-        Text(text = uiState.document?.extractedText.orEmpty(), style = DocumentTextStyle)
-    }
 }
 
 @Composable
-private fun ChipsSection(uiState: AnonymizeUiState, onToggleChip: (String) -> Unit) {
-    Text(stringResource(R.string.redaction_list), style = MaterialTheme.typography.titleMedium)
+private fun ChipsSection(
+    uiState: AnonymizeUiState,
+    onToggleChip: (String) -> Unit,
+    onSelectAll: () -> Unit,
+    onClearAll: () -> Unit,
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            stringResource(R.string.redaction_list),
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.weight(1f),
+        )
+        if (uiState.chips.isNotEmpty()) {
+            Text(
+                text = stringResource(R.string.redactions_selected, uiState.selectedCount),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.primary,
+            )
+        }
+    }
+
     if (uiState.chips.isEmpty()) {
         Text(
             text = stringResource(if (uiState.mode == AnonymizeMode.AUTO) R.string.no_suggestions else R.string.no_terms),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-    } else {
+        return
+    }
+
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        TextButton(onClick = onSelectAll) { Text(stringResource(R.string.select_all_suggestions)) }
+        TextButton(onClick = onClearAll) { Text(stringResource(R.string.clear_all)) }
+    }
+
+    val grouped = uiState.chips.groupBy { it.category }
+    categoryOrder.forEach { category ->
+        val items = grouped[category] ?: return@forEach
+        Text(
+            text = categoryLabel(category),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            uiState.chips.forEach { chip ->
+            items.forEach { chip ->
                 FilterChip(
                     selected = chip.selected,
                     onClick = { onToggleChip(chip.term) },
@@ -333,8 +397,38 @@ private fun ChipsSection(uiState: AnonymizeUiState, onToggleChip: (String) -> Un
 }
 
 @Composable
+private fun DocumentSection(uiState: AnonymizeUiState, onToggleWord: (String) -> Unit) {
+    InfoBanner(
+        icon = Icons.Filled.TouchApp,
+        text = stringResource(R.string.tap_to_redact_hint),
+        container = MaterialTheme.colorScheme.secondaryContainer,
+        content = MaterialTheme.colorScheme.onSecondaryContainer,
+    )
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        RedactableText(
+            text = uiState.document?.extractedText.orEmpty(),
+            selectedTerms = uiState.selectedTerms,
+            highlightBackground = AppTheme.brand.redactionHighlight,
+            highlightForeground = AppTheme.brand.onRedactionHighlight,
+            style = DocumentTextStyle,
+            onToggleWord = onToggleWord,
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(max = 360.dp)
+                .verticalScroll(rememberScrollState())
+                .padding(14.dp),
+        )
+    }
+}
+
+@Composable
 private fun PreviewContent(
     previewText: String,
+    selectedCount: Int,
     onEdit: () -> Unit,
     onSave: () -> Unit,
     onExport: () -> Unit,
@@ -347,13 +441,28 @@ private fun PreviewContent(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Text(stringResource(R.string.preview_title), style = MaterialTheme.typography.titleLarge)
-        Text(
-            text = stringResource(R.string.preview_subtitle),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
 
-        Card(
+        val occurrences = countOccurrences(previewText, ApplyRedactionsUseCase.PLACEHOLDER)
+        Surface(
+            color = MaterialTheme.colorScheme.primaryContainer,
+            shape = RoundedCornerShape(14.dp),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(
+                text = stringResource(
+                    R.string.preview_summary,
+                    pluralStringResource(R.plurals.term_count, selectedCount, selectedCount),
+                    occurrences,
+                ),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                modifier = Modifier.padding(14.dp),
+            )
+        }
+
+        Surface(
+            color = MaterialTheme.colorScheme.surfaceContainerLow,
+            shape = RoundedCornerShape(16.dp),
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f),
@@ -385,41 +494,38 @@ private fun PreviewContent(
     }
 }
 
+private val categoryOrder = listOf(
+    RedactionCategory.NAME,
+    RedactionCategory.DOCUMENT,
+    RedactionCategory.CONTACT,
+    RedactionCategory.DATE,
+    RedactionCategory.ADDRESS,
+    RedactionCategory.ORGANIZATION,
+    RedactionCategory.OTHER,
+)
+
 @Composable
-private fun highlightPlaceholders(text: String): AnnotatedString {
-    val background = MaterialTheme.colorScheme.tertiaryContainer
-    val foreground = MaterialTheme.colorScheme.onTertiaryContainer
-    val placeholder = ApplyRedactionsUseCase.PLACEHOLDER
-    return remember(text, background, foreground) {
-        buildAnnotatedString {
-            var index = 0
-            while (true) {
-                val found = text.indexOf(placeholder, index)
-                if (found < 0) {
-                    append(text.substring(index))
-                    break
-                }
-                append(text.substring(index, found))
-                withStyle(SpanStyle(background = background, color = foreground)) {
-                    append(placeholder)
-                }
-                index = found + placeholder.length
-            }
-        }
+private fun categoryLabel(category: RedactionCategory): String = stringResource(
+    when (category) {
+        RedactionCategory.NAME -> R.string.category_name
+        RedactionCategory.DOCUMENT -> R.string.category_document
+        RedactionCategory.CONTACT -> R.string.category_contact
+        RedactionCategory.DATE -> R.string.category_date
+        RedactionCategory.ADDRESS -> R.string.category_address
+        RedactionCategory.ORGANIZATION -> R.string.category_organization
+        RedactionCategory.OTHER -> R.string.category_other
+    },
+)
+
+private fun countOccurrences(text: String, needle: String): Int {
+    if (needle.isEmpty()) return 0
+    var count = 0
+    var index = text.indexOf(needle)
+    while (index >= 0) {
+        count++
+        index = text.indexOf(needle, index + needle.length)
     }
+    return count
 }
 
 private fun exportName(): String = "anonimizado_${System.currentTimeMillis()}.txt"
-
-private fun shareTextFile(context: Context, filename: String, content: String) {
-    val dir = File(context.filesDir, "exports").apply { mkdirs() }
-    val file = File(dir, filename)
-    file.writeText(content)
-    val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
-    val intent = Intent(Intent.ACTION_SEND).apply {
-        type = "text/plain"
-        putExtra(Intent.EXTRA_STREAM, uri)
-        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-    }
-    context.startActivity(Intent.createChooser(intent, null))
-}

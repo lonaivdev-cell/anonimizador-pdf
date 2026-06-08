@@ -31,12 +31,16 @@ MVVM + Clean Architecture, single Activity, Jetpack Compose.
 ```
 data/        Room (db), DataStore (preferences), repository impls (pdfbox + MediaPipe/llama.cpp)
 domain/      models, repository interfaces, use cases
-presentation/ navigation (adaptive shell + NavGraph), theme, ui/{library,viewer,anonymize,settings,onboarding}
+presentation/ navigation (adaptive shell + NavGraph), theme (color/type/shape + ThemeMode + dynamic color), ui/{home,library,viewer,anonymize,settings,onboarding}
 di/          Hilt modules (Database, Repository, UseCase)
 ```
 
-Adaptive UI via `WindowSizeClass` (`calculateWindowSizeClass`): phone = `NavigationBar` + single
-pane; tablet (Expanded) = `PermanentNavigationDrawer` + two-pane (`NavigableListDetailPaneScaffold`).
+Adaptive UI via `WindowSizeClass` (`calculateWindowSizeClass`): phone = `NavigationBar` (Início /
+Biblioteca / Configurações) + single pane; tablet (Expanded) = `PermanentNavigationDrawer` + two-pane
+(`NavigableListDetailPaneScaffold`). The viewer (`DocumentViewer`) is reused both as the Library
+detail pane and as a standalone route opened from Home. Anonymization supports tap-to-redact
+(`RedactableText`) plus LLM suggestions grouped by `RedactionCategory`; saved `AnonymizedVersion`s are
+surfaced in the viewer's "Versões" tab.
 
 ## Commands
 

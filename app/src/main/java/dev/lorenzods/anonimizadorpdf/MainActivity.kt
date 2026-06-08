@@ -12,8 +12,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.content.IntentCompat
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dagger.hilt.android.AndroidEntryPoint
 import dev.lorenzods.anonimizadorpdf.presentation.navigation.AppShell
+import dev.lorenzods.anonimizadorpdf.presentation.navigation.RootViewModel
 import dev.lorenzods.anonimizadorpdf.presentation.theme.AnonimizadorTheme
 
 @AndroidEntryPoint
@@ -35,12 +38,16 @@ class MainActivity : ComponentActivity() {
         }
 
         setContent {
-            AnonimizadorTheme {
+            val rootViewModel: RootViewModel = hiltViewModel()
+            val themeMode by rootViewModel.themeMode.collectAsStateWithLifecycle()
+            val dynamicColor by rootViewModel.dynamicColor.collectAsStateWithLifecycle()
+            AnonimizadorTheme(themeMode = themeMode, dynamicColor = dynamicColor) {
                 val windowSizeClass = calculateWindowSizeClass(this)
                 AppShell(
                     windowSizeClass = windowSizeClass,
                     sharedPdfUri = sharedPdfUri,
                     onSharedConsumed = { sharedPdfUri = null },
+                    rootViewModel = rootViewModel,
                 )
             }
         }

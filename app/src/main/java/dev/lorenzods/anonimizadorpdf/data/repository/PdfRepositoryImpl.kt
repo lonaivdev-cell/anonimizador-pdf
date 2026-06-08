@@ -128,8 +128,14 @@ class PdfRepositoryImpl @Inject constructor(
     override suspend fun saveAnonymizedVersion(version: AnonymizedVersion): Long =
         withContext(ioDispatcher) { versionDao.insert(version.toEntity()) }
 
+    override suspend fun deleteAnonymizedVersion(version: AnonymizedVersion) =
+        withContext(ioDispatcher) { versionDao.delete(version.toEntity()) }
+
     override fun observeAnonymizedVersions(documentId: Long): Flow<List<AnonymizedVersion>> =
         versionDao.observeForDocument(documentId).map { list -> list.map { it.toDomain() } }
+
+    override fun observeAllAnonymizedVersions(): Flow<List<AnonymizedVersion>> =
+        versionDao.observeAll().map { list -> list.map { it.toDomain() } }
 
     private fun queryDisplayName(uri: Uri): String? =
         context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->

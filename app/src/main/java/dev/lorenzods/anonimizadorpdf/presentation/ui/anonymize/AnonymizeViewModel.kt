@@ -10,11 +10,13 @@ import dev.lorenzods.anonimizadorpdf.data.preferences.AppPreferences
 import dev.lorenzods.anonimizadorpdf.domain.model.AnonymizedVersion
 import dev.lorenzods.anonimizadorpdf.domain.model.DocumentStatus
 import dev.lorenzods.anonimizadorpdf.domain.model.PdfDocument
+import dev.lorenzods.anonimizadorpdf.domain.model.RedactionCategory
 import dev.lorenzods.anonimizadorpdf.domain.repository.LlmNotReadyException
 import dev.lorenzods.anonimizadorpdf.domain.repository.LlmRepository
 import dev.lorenzods.anonimizadorpdf.domain.repository.PdfRepository
 import dev.lorenzods.anonimizadorpdf.domain.usecase.ApplyRedactionsUseCase
 import dev.lorenzods.anonimizadorpdf.domain.usecase.LlmResponseParser
+import dev.lorenzods.anonimizadorpdf.domain.usecase.RedactionClassifier
 import dev.lorenzods.anonimizadorpdf.domain.usecase.SuggestRedactionsUseCase
 import dev.lorenzods.anonimizadorpdf.domain.usecase.TextChunker
 import dev.lorenzods.anonimizadorpdf.presentation.navigation.Screen
@@ -32,7 +34,11 @@ import javax.inject.Inject
 
 enum class AnonymizeMode { AUTO, MANUAL }
 
-data class RedactionChip(val term: String, val selected: Boolean)
+data class RedactionChip(
+    val term: String,
+    val selected: Boolean,
+    val category: RedactionCategory = RedactionCategory.OTHER,
+)
 
 data class AnonymizeUiState(
     val document: PdfDocument? = null,
@@ -46,6 +52,7 @@ data class AnonymizeUiState(
     val errorText: String? = null,
 ) {
     val selectedTerms: List<String> get() = chips.filter { it.selected }.map { it.term }
+    val selectedCount: Int get() = chips.count { it.selected }
 }
 
 sealed interface AnonymizeEvent {
@@ -135,6 +142,26 @@ class AnonymizeViewModel @Inject constructor(
         state.copy(chips = state.chips.map { if (it.term == term) it.copy(selected = !it.selected) else it })
     }
 
+    /** Tap-to-redact: tapping a word in the document toggles it as a selected term. */
+    fun toggleWord(word: String) {
+        val trimmed = word.trim()
+        if (trimmed.isEmpty()) return
+        _uiState.update { state ->
+            val existing = state.chips.firstOrNull { it.term.equals(trimmed, ignoreCase = true) }
+            if (existing != null) {
+                state.copy(chips = state.chips.map { if (it === existing) it.copy(selected = !it.selected) else it })
+            } else {
+                state.copy(
+                    chips = state.chips + RedactionChip(
+                        term = trimmed,
+                        selected = true,
+                        category = RedactionClassifier.classify(trimmed),
+                    ),
+                )
+            }
+        }
+    }
+
     fun addManualTerm(term: String) {
         val trimmed = term.trim()
         if (trimmed.isEmpty()) return
@@ -142,10 +169,22 @@ class AnonymizeViewModel @Inject constructor(
             if (state.chips.any { it.term.equals(trimmed, ignoreCase = true) }) {
                 state
             } else {
-                state.copy(chips = state.chips + RedactionChip(trimmed, selected = true))
+                state.copy(
+                    chips = state.chips + RedactionChip(
+                        term = trimmed,
+                        selected = true,
+                        category = RedactionClassifier.classify(trimmed),
+                    ),
+                )
             }
         }
     }
+
+    fun selectAll() = _uiState.update { state ->
+        state.copy(chips = state.chips.map { it.copy(selected = true) })
+    }
+
+    fun clearAll() = _uiState.update { it.copy(chips = emptyList()) }
 
     fun applyRedactions() {
         val doc = _uiState.value.document ?: return
@@ -176,7 +215,12 @@ class AnonymizeViewModel @Inject constructor(
         val seen = existing.map { it.term.lowercase() }.toMutableSet()
         val additions = newTerms.mapNotNull { term ->
             val key = term.lowercase()
-            if (key in seen) null else { seen.add(key); RedactionChip(term, selected = true) }
+            if (key in seen) {
+                null
+            } else {
+                seen.add(key)
+                RedactionChip(term, selected = true, category = RedactionClassifier.classify(term))
+            }
         }
         return existing + additions
     }

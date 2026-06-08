@@ -1,6 +1,8 @@
 package dev.lorenzods.anonimizadorpdf.presentation.ui.onboarding
 
 import android.content.Intent
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,12 +22,14 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.filled.TouchApp
 import androidx.compose.material.icons.filled.UploadFile
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -34,6 +38,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -41,6 +46,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import dev.lorenzods.anonimizadorpdf.R
+import dev.lorenzods.anonimizadorpdf.presentation.theme.AppTheme
+import dev.lorenzods.anonimizadorpdf.presentation.ui.common.PrivacyBadge
 import kotlinx.coroutines.launch
 
 private data class OnboardingPage(
@@ -55,10 +62,11 @@ fun OnboardingScreen(onFinish: () -> Unit) {
     val pages = listOf(
         OnboardingPage(Icons.Filled.Shield, R.string.onboarding_1_title, R.string.onboarding_1_desc),
         OnboardingPage(Icons.Filled.UploadFile, R.string.onboarding_2_title, R.string.onboarding_2_desc),
+        OnboardingPage(Icons.Filled.TouchApp, R.string.onboarding_3_title, R.string.onboarding_3_desc),
         OnboardingPage(
             icon = Icons.Filled.Download,
-            titleRes = R.string.onboarding_3_title,
-            descRes = R.string.onboarding_3_desc,
+            titleRes = R.string.onboarding_4_title,
+            descRes = R.string.onboarding_4_desc,
             linkRes = R.string.onboarding_3_link,
         ),
     )
@@ -73,7 +81,16 @@ fun OnboardingScreen(onFinish: () -> Unit) {
                 .fillMaxSize()
                 .padding(padding),
         ) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                PrivacyBadge(
+                    modifier = Modifier.padding(start = 12.dp),
+                    container = MaterialTheme.colorScheme.primaryContainer,
+                    content = MaterialTheme.colorScheme.onPrimaryContainer,
+                )
+                Spacer(Modifier.weight(1f))
                 TextButton(onClick = onFinish) { Text(stringResource(R.string.onboarding_skip)) }
             }
 
@@ -86,13 +103,21 @@ fun OnboardingScreen(onFinish: () -> Unit) {
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center,
                 ) {
-                    Icon(
-                        imageVector = page.icon,
-                        contentDescription = null,
-                        modifier = Modifier.size(96.dp),
-                        tint = MaterialTheme.colorScheme.primary,
-                    )
-                    Spacer(Modifier.height(24.dp))
+                    Box(
+                        modifier = Modifier
+                            .size(132.dp)
+                            .clip(CircleShape)
+                            .background(AppTheme.brand.gradient),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            imageVector = page.icon,
+                            contentDescription = null,
+                            modifier = Modifier.size(60.dp),
+                            tint = Color.White,
+                        )
+                    }
+                    Spacer(Modifier.height(32.dp))
                     Text(
                         text = stringResource(page.titleRes),
                         style = MaterialTheme.typography.headlineSmall,
@@ -106,7 +131,7 @@ fun OnboardingScreen(onFinish: () -> Unit) {
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     if (page.linkRes != null) {
-                        Spacer(Modifier.height(20.dp))
+                        Spacer(Modifier.height(24.dp))
                         FilledTonalButton(onClick = {
                             runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, gemmaUrl.toUri())) }
                         }) {
@@ -126,18 +151,18 @@ fun OnboardingScreen(onFinish: () -> Unit) {
             ) {
                 repeat(pages.size) { index ->
                     val selected = pagerState.currentPage == index
+                    val width by animateDpAsState(if (selected) 24.dp else 8.dp, label = "dotWidth")
+                    val color by animateColorAsState(
+                        if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHighest,
+                        label = "dotColor",
+                    )
                     Box(
                         modifier = Modifier
                             .padding(4.dp)
-                            .size(if (selected) 10.dp else 8.dp)
+                            .height(8.dp)
+                            .width(width)
                             .clip(CircleShape)
-                            .background(
-                                if (selected) {
-                                    MaterialTheme.colorScheme.primary
-                                } else {
-                                    MaterialTheme.colorScheme.surfaceVariant
-                                },
-                            ),
+                            .background(color),
                     )
                 }
             }
@@ -146,8 +171,14 @@ fun OnboardingScreen(onFinish: () -> Unit) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp),
-                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically,
             ) {
+                if (pagerState.currentPage > 0) {
+                    TextButton(onClick = {
+                        scope.launch { pagerState.animateScrollToPage(pagerState.currentPage - 1) }
+                    }) { Text(stringResource(R.string.onboarding_back)) }
+                }
+                Spacer(Modifier.weight(1f))
                 val isLast = pagerState.currentPage == pages.lastIndex
                 Button(onClick = {
                     if (isLast) {

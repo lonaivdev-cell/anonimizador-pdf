@@ -23,5 +23,9 @@ interface PdfRepository {
     suspend fun deleteAll()
 
     suspend fun saveAnonymizedVersion(version: AnonymizedVersion): Long
+    suspend fun deleteAnonymizedVersion(version: AnonymizedVersion)
     fun observeAnonymizedVersions(documentId: Long): Flow<List<AnonymizedVersion>>
+
+    /** Every saved anonymized version across all documents — backs the home dashboard stats. */
+    fun observeAllAnonymizedVersions(): Flow<List<AnonymizedVersion>>
 }

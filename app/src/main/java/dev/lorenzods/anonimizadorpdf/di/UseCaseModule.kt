@@ -9,6 +9,7 @@ import dev.lorenzods.anonimizadorpdf.domain.repository.PdfRepository
 import dev.lorenzods.anonimizadorpdf.domain.usecase.ApplyRedactionsUseCase
 import dev.lorenzods.anonimizadorpdf.domain.usecase.ExtractTextUseCase
 import dev.lorenzods.anonimizadorpdf.domain.usecase.ImportPdfUseCase
+import dev.lorenzods.anonimizadorpdf.domain.usecase.ReviewSuggestionsUseCase
 import dev.lorenzods.anonimizadorpdf.domain.usecase.SuggestRedactionsUseCase
 
 @Module
@@ -26,6 +27,10 @@ object UseCaseModule {
     @Provides
     fun provideSuggestRedactionsUseCase(repository: LlmRepository): SuggestRedactionsUseCase =
         SuggestRedactionsUseCase(repository)
+
+    @Provides
+    fun provideReviewSuggestionsUseCase(repository: LlmRepository): ReviewSuggestionsUseCase =
+        ReviewSuggestionsUseCase(repository)
 
     @Provides
     fun provideApplyRedactionsUseCase(): ApplyRedactionsUseCase = ApplyRedactionsUseCase()

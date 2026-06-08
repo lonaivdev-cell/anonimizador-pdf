@@ -8,6 +8,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.lorenzods.anonimizadorpdf.R
 import dev.lorenzods.anonimizadorpdf.data.preferences.AppPreferences
 import dev.lorenzods.anonimizadorpdf.domain.model.AnonymizedVersion
+import dev.lorenzods.anonimizadorpdf.domain.model.Confidence
 import dev.lorenzods.anonimizadorpdf.domain.model.DocumentStatus
 import dev.lorenzods.anonimizadorpdf.domain.model.PdfDocument
 import dev.lorenzods.anonimizadorpdf.domain.model.RedactionCategory
@@ -16,7 +17,9 @@ import dev.lorenzods.anonimizadorpdf.domain.repository.LlmRepository
 import dev.lorenzods.anonimizadorpdf.domain.repository.PdfRepository
 import dev.lorenzods.anonimizadorpdf.domain.usecase.ApplyRedactionsUseCase
 import dev.lorenzods.anonimizadorpdf.domain.usecase.LlmResponseParser
+import dev.lorenzods.anonimizadorpdf.domain.usecase.PiiDetector
 import dev.lorenzods.anonimizadorpdf.domain.usecase.RedactionClassifier
+import dev.lorenzods.anonimizadorpdf.domain.usecase.ReviewSuggestionsUseCase
 import dev.lorenzods.anonimizadorpdf.domain.usecase.SuggestRedactionsUseCase
 import dev.lorenzods.anonimizadorpdf.domain.usecase.TextChunker
 import dev.lorenzods.anonimizadorpdf.presentation.navigation.Screen
@@ -38,6 +41,9 @@ data class RedactionChip(
     val term: String,
     val selected: Boolean,
     val category: RedactionCategory = RedactionCategory.OTHER,
+    val confidence: Confidence = Confidence.MEDIUM,
+    /** True when the LLM review judged this term non-sensitive (kept visible but deselected). */
+    val filteredByAi: Boolean = false,
 )
 
 data class AnonymizeUiState(
@@ -45,6 +51,7 @@ data class AnonymizeUiState(
     val mode: AnonymizeMode = AnonymizeMode.AUTO,
     val modelAvailable: Boolean = false,
     val generating: Boolean = false,
+    val reviewing: Boolean = false,
     val progress: String? = null,
     val streamingText: String = "",
     val chips: List<RedactionChip> = emptyList(),
@@ -53,6 +60,7 @@ data class AnonymizeUiState(
 ) {
     val selectedTerms: List<String> get() = chips.filter { it.selected }.map { it.term }
     val selectedCount: Int get() = chips.count { it.selected }
+    val busy: Boolean get() = generating || reviewing
 }
 
 sealed interface AnonymizeEvent {
@@ -65,6 +73,7 @@ class AnonymizeViewModel @Inject constructor(
     private val pdfRepository: PdfRepository,
     private val preferences: AppPreferences,
     private val suggestRedactions: SuggestRedactionsUseCase,
+    private val reviewSuggestions: ReviewSuggestionsUseCase,
     private val applyRedactions: ApplyRedactionsUseCase,
     private val llmRepository: LlmRepository,
 ) : ViewModel() {
@@ -81,12 +90,15 @@ class AnonymizeViewModel @Inject constructor(
     val events: SharedFlow<AnonymizeEvent> = _events.asSharedFlow()
 
     private var generateJob: Job? = null
+    private var reviewJob: Job? = null
 
     init {
         viewModelScope.launch {
             val doc = pdfRepository.getDocument(docId)
             val available = llmRepository.isModelAvailable()
             _uiState.update { it.copy(document = doc, modelAvailable = available) }
+            // Stage 1: instant, offline candidate detection.
+            if (doc != null) applyDetections(PiiDetector.detect(doc.extractedText))
         }
     }
 
@@ -94,8 +106,76 @@ class AnonymizeViewModel @Inject constructor(
 
     fun clearError() = _uiState.update { it.copy(errorText = null) }
 
-    fun generate() {
+    /** Re-runs the offline detector, merging any new candidates without disturbing existing chips. */
+    fun runDetection() {
         val doc = _uiState.value.document ?: return
+        applyDetections(PiiDetector.detect(doc.extractedText))
+    }
+
+    private fun applyDetections(detections: List<PiiDetector.Detection>) {
+        _uiState.update { state ->
+            val seen = state.chips.map { it.term.lowercase() }.toMutableSet()
+            val additions = detections.mapNotNull { d ->
+                val key = d.term.lowercase()
+                if (key in seen) {
+                    null
+                } else {
+                    seen.add(key)
+                    RedactionChip(
+                        term = d.term,
+                        selected = d.confidence != Confidence.LOW,
+                        category = d.category,
+                        confidence = d.confidence,
+                    )
+                }
+            }
+            state.copy(chips = state.chips + additions)
+        }
+    }
+
+    /** Stage 2a: LLM reviews the candidate list and deselects (but keeps) non-sensitive terms. */
+    fun reviewWithLlm() {
+        val terms = _uiState.value.chips.map { it.term }
+        if (terms.isEmpty() || _uiState.value.busy) return
+        reviewJob?.cancel()
+        _uiState.update { it.copy(reviewing = true, errorText = null) }
+        reviewJob = viewModelScope.launch {
+            try {
+                val builder = StringBuilder()
+                reviewSuggestions.stream(terms).collect { builder.append(it) }
+                val kept = LlmResponseParser.parseTerms(builder.toString()).map { it.lowercase() }.toSet()
+                if (kept.isEmpty()) {
+                    // The model returned nothing usable — never silently wipe the user's list.
+                    _uiState.update { it.copy(reviewing = false) }
+                    _events.emit(AnonymizeEvent.Message(R.string.review_no_result))
+                    return@launch
+                }
+                _uiState.update { state ->
+                    state.copy(
+                        reviewing = false,
+                        chips = state.chips.map { chip ->
+                            val sensitive = chip.term.lowercase() in kept
+                            chip.copy(selected = sensitive, filteredByAi = !sensitive)
+                        },
+                    )
+                }
+                _events.emit(AnonymizeEvent.Message(R.string.review_done))
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: LlmNotReadyException) {
+                _uiState.update { it.copy(reviewing = false, modelAvailable = false) }
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(reviewing = false, errorText = e.message ?: "Falha na revisão pelo modelo.")
+                }
+            }
+        }
+    }
+
+    /** Stage 2b: optional full-text LLM deep scan to catch candidates the patterns missed. */
+    fun deepScan() {
+        val doc = _uiState.value.document ?: return
+        if (_uiState.value.busy) return
         generateJob?.cancel()
         _uiState.update { it.copy(generating = true, streamingText = "", errorText = null) }
         generateJob = viewModelScope.launch {
@@ -135,11 +215,16 @@ class AnonymizeViewModel @Inject constructor(
 
     fun stopGenerating() {
         generateJob?.cancel()
-        _uiState.update { it.copy(generating = false) }
+        reviewJob?.cancel()
+        _uiState.update { it.copy(generating = false, reviewing = false) }
     }
 
     fun toggleChip(term: String) = _uiState.update { state ->
-        state.copy(chips = state.chips.map { if (it.term == term) it.copy(selected = !it.selected) else it })
+        state.copy(
+            chips = state.chips.map {
+                if (it.term == term) it.copy(selected = !it.selected, filteredByAi = false) else it
+            },
+        )
     }
 
     /** Tap-to-redact: tapping a word in the document toggles it as a selected term. */
@@ -149,13 +234,18 @@ class AnonymizeViewModel @Inject constructor(
         _uiState.update { state ->
             val existing = state.chips.firstOrNull { it.term.equals(trimmed, ignoreCase = true) }
             if (existing != null) {
-                state.copy(chips = state.chips.map { if (it === existing) it.copy(selected = !it.selected) else it })
+                state.copy(
+                    chips = state.chips.map {
+                        if (it === existing) it.copy(selected = !it.selected, filteredByAi = false) else it
+                    },
+                )
             } else {
                 state.copy(
                     chips = state.chips + RedactionChip(
                         term = trimmed,
                         selected = true,
                         category = RedactionClassifier.classify(trimmed),
+                        confidence = Confidence.HIGH,
                     ),
                 )
             }
@@ -174,6 +264,7 @@ class AnonymizeViewModel @Inject constructor(
                         term = trimmed,
                         selected = true,
                         category = RedactionClassifier.classify(trimmed),
+                        confidence = Confidence.HIGH,
                     ),
                 )
             }
@@ -181,7 +272,7 @@ class AnonymizeViewModel @Inject constructor(
     }
 
     fun selectAll() = _uiState.update { state ->
-        state.copy(chips = state.chips.map { it.copy(selected = true) })
+        state.copy(chips = state.chips.map { it.copy(selected = true, filteredByAi = false) })
     }
 
     fun clearAll() = _uiState.update { it.copy(chips = emptyList()) }
@@ -219,7 +310,12 @@ class AnonymizeViewModel @Inject constructor(
                 null
             } else {
                 seen.add(key)
-                RedactionChip(term, selected = true, category = RedactionClassifier.classify(term))
+                RedactionChip(
+                    term = term,
+                    selected = true,
+                    category = RedactionClassifier.classify(term),
+                    confidence = Confidence.MEDIUM,
+                )
             }
         }
         return existing + additions

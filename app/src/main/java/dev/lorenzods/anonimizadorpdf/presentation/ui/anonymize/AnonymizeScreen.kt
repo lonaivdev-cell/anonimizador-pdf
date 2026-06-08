@@ -27,8 +27,11 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.FilterAlt
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.TouchApp
 import androidx.compose.material3.Button
@@ -150,7 +153,9 @@ fun AnonymizeScreen(
                 EditContent(
                     uiState = uiState,
                     onSetMode = viewModel::setMode,
-                    onGenerate = viewModel::generate,
+                    onDetect = viewModel::runDetection,
+                    onReview = viewModel::reviewWithLlm,
+                    onDeepScan = viewModel::deepScan,
                     onStop = viewModel::stopGenerating,
                     onToggleChip = viewModel::toggleChip,
                     onToggleWord = viewModel::toggleWord,
@@ -189,7 +194,9 @@ private fun ApplyBar(count: Int, onApply: () -> Unit) {
 private fun EditContent(
     uiState: AnonymizeUiState,
     onSetMode: (AnonymizeMode) -> Unit,
-    onGenerate: () -> Unit,
+    onDetect: () -> Unit,
+    onReview: () -> Unit,
+    onDeepScan: () -> Unit,
     onStop: () -> Unit,
     onToggleChip: (String) -> Unit,
     onToggleWord: (String) -> Unit,
@@ -219,7 +226,7 @@ private fun EditContent(
         }
 
         when (uiState.mode) {
-            AnonymizeMode.AUTO -> ModeAuto(uiState, onGenerate, onStop, onNavigateToSettings)
+            AnonymizeMode.AUTO -> ModeAuto(uiState, onDetect, onReview, onDeepScan, onStop, onNavigateToSettings)
             AnonymizeMode.MANUAL -> ModeManual(onAddManual)
         }
 
@@ -234,45 +241,66 @@ private fun EditContent(
 @Composable
 private fun ModeAuto(
     uiState: AnonymizeUiState,
-    onGenerate: () -> Unit,
+    onDetect: () -> Unit,
+    onReview: () -> Unit,
+    onDeepScan: () -> Unit,
     onStop: () -> Unit,
     onNavigateToSettings: () -> Unit,
 ) {
-    if (!uiState.modelAvailable) {
-        Surface(
-            color = MaterialTheme.colorScheme.tertiaryContainer,
-            shape = RoundedCornerShape(16.dp),
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    stringResource(R.string.no_model_title),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onTertiaryContainer,
-                )
-                Text(
-                    stringResource(R.string.no_model_message),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onTertiaryContainer,
-                )
-                FilledTonalButton(onClick = onNavigateToSettings) {
-                    Icon(Icons.Filled.Settings, contentDescription = null)
-                    Spacer(Modifier.width(8.dp))
-                    Text(stringResource(R.string.go_to_settings))
-                }
-            }
-        }
-        return
-    }
-
-    Button(
-        onClick = onGenerate,
-        enabled = !uiState.generating,
+    // Stage 1 summary — always available, fully offline.
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        shape = RoundedCornerShape(16.dp),
         modifier = Modifier.fillMaxWidth(),
     ) {
-        Icon(Icons.Filled.AutoAwesome, contentDescription = null)
-        Spacer(Modifier.width(8.dp))
-        Text(stringResource(if (uiState.chips.isEmpty()) R.string.generate else R.string.regenerate))
+        Row(
+            modifier = Modifier.padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Icon(Icons.Filled.Shield, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+            Text(
+                text = if (uiState.chips.isEmpty()) {
+                    stringResource(R.string.auto_summary_empty)
+                } else {
+                    stringResource(R.string.auto_summary, uiState.chips.size)
+                },
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.weight(1f),
+            )
+        }
+    }
+
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        OutlinedButton(onClick = onDetect, enabled = !uiState.busy) {
+            Icon(Icons.Filled.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(8.dp))
+            Text(stringResource(R.string.detect_again))
+        }
+        FilledTonalButton(onClick = onReview, enabled = uiState.modelAvailable && !uiState.busy && uiState.chips.isNotEmpty()) {
+            Icon(Icons.Filled.FilterAlt, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(8.dp))
+            Text(stringResource(R.string.review_with_ai))
+        }
+        FilledTonalButton(onClick = onDeepScan, enabled = uiState.modelAvailable && !uiState.busy) {
+            Icon(Icons.Filled.AutoAwesome, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(8.dp))
+            Text(stringResource(R.string.deep_scan))
+        }
+    }
+
+    if (!uiState.modelAvailable) {
+        InfoBanner(
+            icon = Icons.Filled.Settings,
+            text = stringResource(R.string.ai_needs_model),
+            container = MaterialTheme.colorScheme.tertiaryContainer,
+            content = MaterialTheme.colorScheme.onTertiaryContainer,
+        )
+        TextButton(onClick = onNavigateToSettings) { Text(stringResource(R.string.go_to_settings)) }
+    }
+
+    if (uiState.reviewing) {
+        BusyCard(stringResource(R.string.reviewing), onStop)
     }
 
     if (uiState.generating) {
@@ -306,6 +334,25 @@ private fun ModeAuto(
                     Text(stringResource(R.string.stop))
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun BusyCard(label: String, onStop: () -> Unit) {
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+            Text(label, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+            TextButton(onClick = onStop) { Text(stringResource(R.string.stop)) }
         }
     }
 }
@@ -376,6 +423,14 @@ private fun ChipsSection(
         TextButton(onClick = onClearAll) { Text(stringResource(R.string.clear_all)) }
     }
 
+    if (uiState.chips.any { it.filteredByAi }) {
+        Text(
+            text = stringResource(R.string.filtered_note),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+
     val grouped = uiState.chips.groupBy { it.category }
     categoryOrder.forEach { category ->
         val items = grouped[category] ?: return@forEach
@@ -389,7 +444,7 @@ private fun ChipsSection(
                 FilterChip(
                     selected = chip.selected,
                     onClick = { onToggleChip(chip.term) },
-                    label = { Text(chip.term) },
+                    label = { Text(if (chip.filteredByAi) "✦ ${chip.term}" else chip.term) },
                 )
             }
         }

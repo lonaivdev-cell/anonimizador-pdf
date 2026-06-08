@@ -146,6 +146,19 @@
     <string name="error_llm">Falha na inferência do modelo.</string>
     <string name="regenerate">Gerar novamente</string>
 
+    <!-- Detection pipeline -->
+    <string name="auto_summary">%1$d sugestões automáticas (offline)</string>
+    <string name="auto_summary_empty">Nenhum dado sensível detectado automaticamente. Toque nas palavras para marcar, ou use a IA.</string>
+    <string name="detect_again">Detectar novamente</string>
+    <string name="review_with_ai">Revisar com IA</string>
+    <string name="deep_scan">Varredura completa</string>
+    <string name="reviewing">Revisando sugestões com a IA…</string>
+    <string name="ai_needs_model">Carregue um modelo para usar a revisão e a varredura por IA. As sugestões automáticas funcionam offline, sem modelo.</string>
+    <string name="filtered_note">Itens com ✦ foram apontados como não sensíveis pela IA e desmarcados — confira antes de aplicar.</string>
+    <string name="review_done">Revisão por IA concluída</string>
+    <string name="review_no_result">A IA não retornou um resultado válido. As sugestões foram mantidas.</string>
+    <string name="confidence_low_hint">Sugestões de baixa confiança começam desmarcadas.</string>
+
     <!-- Redaction categories -->
     <string name="category_name">Nomes</string>
     <string name="category_document">Documentos</string>

@@ -8,8 +8,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.MenuBook
-import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.automirrored.outlined.MenuBook
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -20,12 +22,17 @@ import androidx.compose.material3.NavigationDrawerItemDefaults
 import androidx.compose.material3.PermanentDrawerSheet
 import androidx.compose.material3.PermanentNavigationDrawer
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.windowsizeclass.WindowSizeClass
 import androidx.compose.material3.windowsizeclass.WindowWidthSizeClass
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -44,6 +51,12 @@ private data class TopLevelDestination(
     val route: String,
     val labelRes: Int,
     val icon: ImageVector,
+)
+
+private val topLevelDestinations = listOf(
+    TopLevelDestination(Screen.Home.route, R.string.nav_home, Icons.Outlined.Home),
+    TopLevelDestination(Screen.Library.route, R.string.nav_library, Icons.AutoMirrored.Outlined.MenuBook),
+    TopLevelDestination(Screen.Settings.route, R.string.nav_settings, Icons.Outlined.Settings),
 )
 
 @Composable
@@ -74,7 +87,7 @@ private fun MainShell(
     val isExpanded = windowSizeClass.widthSizeClass == WindowWidthSizeClass.Expanded
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
-    val isTopLevel = currentRoute == Screen.Library.route || currentRoute == Screen.Settings.route
+    val isTopLevel = topLevelDestinations.any { it.route == currentRoute }
 
     // A share arriving while the user is on another screen should surface the Library, which owns
     // the consume logic. The Activity clears the Uri once LibraryScreen imports it.
@@ -84,22 +97,12 @@ private fun MainShell(
         }
     }
 
-    val destinations = listOf(
-        TopLevelDestination(Screen.Library.route, R.string.nav_library, Icons.AutoMirrored.Filled.MenuBook),
-        TopLevelDestination(Screen.Settings.route, R.string.nav_settings, Icons.Filled.Settings),
-    )
-
     if (isExpanded) {
         PermanentNavigationDrawer(
             drawerContent = {
                 PermanentDrawerSheet(Modifier.widthIn(max = 280.dp)) {
-                    Spacer(Modifier.height(16.dp))
-                    Text(
-                        text = stringResource(R.string.app_name),
-                        style = MaterialTheme.typography.titleLarge,
-                        modifier = Modifier.padding(horizontal = 28.dp, vertical = 12.dp),
-                    )
-                    destinations.forEach { dest ->
+                    BrandHeader()
+                    topLevelDestinations.forEach { dest ->
                         NavigationDrawerItem(
                             icon = { Icon(dest.icon, contentDescription = null) },
                             label = { Text(stringResource(dest.labelRes)) },
@@ -118,7 +121,7 @@ private fun MainShell(
             bottomBar = {
                 if (isTopLevel) {
                     NavigationBar {
-                        destinations.forEach { dest ->
+                        topLevelDestinations.forEach { dest ->
                             NavigationBarItem(
                                 icon = { Icon(dest.icon, contentDescription = null) },
                                 label = { Text(stringResource(dest.labelRes)) },
@@ -141,7 +144,42 @@ private fun MainShell(
     }
 }
 
-private fun NavController.navigateTopLevel(route: String) {
+@Composable
+private fun BrandHeader() {
+    Row(
+        modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 28.dp, bottom = 20.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Surface(
+            shape = RoundedCornerShape(12.dp),
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(40.dp),
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    Icons.Filled.AutoAwesome,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier.size(22.dp),
+                )
+            }
+        }
+        Spacer(Modifier.size(12.dp))
+        Column {
+            Text(
+                text = stringResource(R.string.app_name),
+                style = MaterialTheme.typography.titleMedium,
+            )
+            Text(
+                text = stringResource(R.string.badge_offline),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.primary,
+            )
+        }
+    }
+}
+
+internal fun NavController.navigateTopLevel(route: String) {
     navigate(route) {
         popUpTo(graph.findStartDestination().id) { saveState = true }
         launchSingleTop = true

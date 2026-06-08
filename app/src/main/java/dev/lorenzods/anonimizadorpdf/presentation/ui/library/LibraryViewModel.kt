@@ -35,6 +35,7 @@ data class ExtractionState(
 
 data class LibraryUiState(
     val documents: List<PdfDocument> = emptyList(),
+    val versionCounts: Map<Long, Int> = emptyMap(),
     val query: String = "",
     val filter: StatusFilter = StatusFilter.ALL,
     val loading: Boolean = true,
@@ -61,19 +62,34 @@ class LibraryViewModel @Inject constructor(
     private val _events = MutableSharedFlow<LibraryEvent>(extraBufferCapacity = 8)
     val events: SharedFlow<LibraryEvent> = _events.asSharedFlow()
 
-    val uiState: StateFlow<LibraryUiState> = combine(
+    private val docsWithCounts = combine(
         pdfRepository.observeDocuments(),
+        pdfRepository.observeAllAnonymizedVersions(),
+    ) { docs, versions ->
+        docs to versions.groupingBy { it.parentDocumentId }.eachCount()
+    }
+
+    val uiState: StateFlow<LibraryUiState> = combine(
+        docsWithCounts,
         query,
         filter,
         extraction,
         hiddenIds,
-    ) { docs, q, f, extr, hidden ->
+    ) { docsAndCounts, q, f, extr, hidden ->
+        val (docs, counts) = docsAndCounts
         val filtered = docs.filter { doc ->
             doc.id !in hidden &&
                 (q.isBlank() || doc.originalFilename.contains(q, ignoreCase = true)) &&
                 (f == StatusFilter.ALL || doc.status.name == f.name)
         }
-        LibraryUiState(documents = filtered, query = q, filter = f, loading = false, extraction = extr)
+        LibraryUiState(
+            documents = filtered,
+            versionCounts = counts,
+            query = q,
+            filter = f,
+            loading = false,
+            extraction = extr,
+        )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LibraryUiState())
 
     fun onQueryChange(value: String) {

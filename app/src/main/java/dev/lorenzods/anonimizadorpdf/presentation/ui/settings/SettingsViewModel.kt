@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.lorenzods.anonimizadorpdf.R
 import dev.lorenzods.anonimizadorpdf.data.preferences.AppPreferences
+import dev.lorenzods.anonimizadorpdf.domain.model.ThemeMode
 import dev.lorenzods.anonimizadorpdf.domain.repository.LlmRepository
 import dev.lorenzods.anonimizadorpdf.domain.repository.PdfRepository
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -35,6 +36,12 @@ class SettingsViewModel @Inject constructor(
 
     val exportFolderUri: StateFlow<String?> =
         preferences.exportFolderUri.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    val themeMode: StateFlow<ThemeMode> =
+        preferences.themeMode.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ThemeMode.SYSTEM)
+
+    val dynamicColor: StateFlow<Boolean> =
+        preferences.dynamicColor.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
     private val _copying = MutableStateFlow(false)
     val copying: StateFlow<Boolean> = _copying.asStateFlow()
@@ -72,6 +79,18 @@ class SettingsViewModel @Inject constructor(
 
     fun setExportFolder(uri: String) {
         viewModelScope.launch { preferences.setExportFolderUri(uri) }
+    }
+
+    fun setThemeMode(mode: ThemeMode) {
+        viewModelScope.launch { preferences.setThemeMode(mode) }
+    }
+
+    fun setDynamicColor(enabled: Boolean) {
+        viewModelScope.launch { preferences.setDynamicColor(enabled) }
+    }
+
+    fun replayOnboarding() {
+        viewModelScope.launch { preferences.setOnboardingDone(false) }
     }
 
     fun deleteAllData() {

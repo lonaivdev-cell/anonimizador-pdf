@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.lorenzods.anonimizadorpdf.data.preferences.AppPreferences
+import dev.lorenzods.anonimizadorpdf.domain.model.ThemeMode
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
@@ -18,6 +19,12 @@ class RootViewModel @Inject constructor(
     /** null = still loading, true/false = resolved onboarding flag. */
     val onboardingDone: StateFlow<Boolean?> = preferences.onboardingDone
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    val themeMode: StateFlow<ThemeMode> = preferences.themeMode
+        .stateIn(viewModelScope, SharingStarted.Eagerly, ThemeMode.SYSTEM)
+
+    val dynamicColor: StateFlow<Boolean> = preferences.dynamicColor
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
     fun completeOnboarding() {
         viewModelScope.launch { preferences.setOnboardingDone(true) }

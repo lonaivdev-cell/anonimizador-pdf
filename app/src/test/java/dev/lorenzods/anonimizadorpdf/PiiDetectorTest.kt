@@ -13,6 +13,9 @@ class PiiDetectorTest {
 
     private fun detect(text: String) = PiiDetector.detect(text)
 
+    private fun detect(text: String, learnedTerms: List<String>) =
+        PiiDetector.detect(text, learnedTerms)
+
     private fun List<PiiDetector.Detection>.term(term: String) =
         firstOrNull { it.term.equals(term, ignoreCase = true) }
 

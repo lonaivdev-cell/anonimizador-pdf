@@ -5,7 +5,7 @@ resultados laboratoriais de pacientes) antes de enviá-los a um LLM externo para
 
 O app extrai o texto do PDF **no dispositivo** e sugere os termos sensíveis segundo a **LGPD**
 instantaneamente, com um **detector offline determinístico** (nomes brasileiros, remetentes de
-conversa, CPF, RG, CRM, CNS, telefones, e-mails, endereços, datas, prontuários) — sem precisar de
+conversa, CPF, RG, CRM, CRBM, CNS, telefones, e-mails, endereços, datas, prontuários) — sem precisar de
 modelo de IA. Toque nas palavras para marcar/desmarcar, ou refine com um **LLM on-device opcional**.
 Cada termo é substituído por `[ANONIMIZADO]` e o resultado é exportado como `.txt` — opcionalmente
 **reformatado para leitura por LLM** (alternável). Nada sai do aparelho.

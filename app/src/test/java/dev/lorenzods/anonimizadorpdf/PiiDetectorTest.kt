@@ -79,6 +79,25 @@ class PiiDetectorTest {
     }
 
     @Test
+    fun detectsCrbmNumber() {
+        // Biomedicine professionals sign reports with a CRBM registration, like a physician's CRM.
+        val result = detect("Responsável técnico: Ana Biomédica - CRBM/SP 12345")
+        val crbm = result.term("12345")
+        assertNotNull(crbm)
+        assertEquals(RedactionCategory.DOCUMENT, crbm!!.category)
+        assertEquals(Confidence.HIGH, crbm.confidence)
+    }
+
+    @Test
+    fun detectsCrbmNumberWithRegionAndBareLabel() {
+        // Region number ("CRBM-6") and a spelled-out region must not swallow the registration, and a
+        // bare "CRBM 98765" with no region must capture the full number rather than a truncation.
+        assertEquals("123456", detect("CRBM-6 123456").term("123456")?.term)
+        assertEquals("445566", detect("CRBM 1ª Região 445566").term("445566")?.term)
+        assertEquals("98765", detect("CRBM 98765").term("98765")?.term)
+    }
+
+    @Test
     fun detectsProntuarioNumber() {
         val d = detect("Prontuário nº 456789").term("456789")
         assertNotNull(d)

@@ -8,7 +8,7 @@ A **fully-offline** native Android app for anonymizing patient PDFs (clinical ch
 results) before they are sent to external LLMs for research. It is a personal clinical tool. It
 extracts PDF text on-device and suggests LGPD-sensitive terms **instantly with a deterministic
 offline detector** (`PiiDetector`: Brazilian name dictionaries, chat-sender patterns,
-CPF/RG/CRM/CNS/phone/e-mail/address/date/prontuário regexes) — an **optional** on-device LLM
+CPF/RG/CRM/CRBM/CNS/phone/e-mail/address/date/prontuário regexes) — an **optional** on-device LLM
 (MediaPipe or llama.cpp) can refine the list. The user confirms (tap-to-redact), terms are replaced
 whole-word by `[ANONIMIZADO]`, and the result exports as `.txt` — optionally re-organized for LLM
 reading via a toggle (`OutputFormatter`; OFF = exact redacted text). All user-visible text is

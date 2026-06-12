@@ -7,6 +7,12 @@ plugins {
     alias(libs.plugins.hilt)
 }
 
+// Version is derived from the release tag in CI (release.yml passes -PversionName / -PversionCode),
+// so the APK's internal version always matches the GitHub release tag and can't drift.
+// The fallbacks below are used for local/debug builds.
+val appVersionName = (project.findProperty("versionName") as String?) ?: "3.0.0"
+val appVersionCode = (project.findProperty("versionCode") as String?)?.toInt() ?: 30000
+
 android {
     namespace = "dev.lorenzods.anonimizadorpdf"
     compileSdk = 35
@@ -15,8 +21,8 @@ android {
         applicationId = "dev.lorenzods.anonimizadorpdf"
         minSdk = 31
         targetSdk = 35
-        versionCode = 3
-        versionName = "2.1.0"
+        versionCode = appVersionCode
+        versionName = appVersionName
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }

@@ -74,12 +74,21 @@ class AppPreferences @Inject constructor(
         context.dataStore.edit { it[Keys.FORMAT_OUTPUT] = enabled }
 
     companion object {
+        // Tuned for small on-device models: short bullet rules instead of a run-on paragraph, plus
+        // a one-shot example showing the exact input/output format. SuggestRedactionsUseCase frames
+        // each chunk the same way ("TEXTO: …" then "Resposta:") so the model just continues the
+        // pattern.
         const val DEFAULT_SYSTEM_PROMPT =
-            "Você é um assistente de anonimização de dados médicos (LGPD). Analise o trecho de texto " +
-                "clínico fornecido e identifique todos os dados pessoais que devem ser removidos: nomes " +
-                "completos de pacientes e familiares, CPF, RG, datas de nascimento, números de telefone, " +
-                "endereços, e-mails, nomes de médicos e nomes de instituições, clínicas ou hospitais. " +
-                "Copie do texto exatamente os trechos a remover. Responda APENAS com um array JSON de " +
-                "strings, sem explicações e sem texto adicional. Se não houver nada a remover, responda []."
+            "Tarefa: copiar os dados pessoais (LGPD) de um texto clínico.\n" +
+                "Copie do texto, exatamente como escrito, cada item destes tipos:\n" +
+                "- nomes de pessoas (pacientes, familiares, médicos)\n" +
+                "- nomes de clínicas, hospitais, laboratórios\n" +
+                "- CPF, RG, telefone, e-mail, endereço, data de nascimento\n" +
+                "NÃO copie doenças, exames, medicamentos, resultados nem valores.\n" +
+                "Responda APENAS com um array JSON de strings. Se não houver nada, responda [].\n\n" +
+                "Exemplo:\n" +
+                "TEXTO:\n" +
+                "Paciente João Souza, hemoglobina 14,2, contato (11) 98888-7777.\n" +
+                "Resposta: [\"João Souza\", \"(11) 98888-7777\"]"
     }
 }

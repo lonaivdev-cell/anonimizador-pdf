@@ -336,7 +336,8 @@ private fun AiSection(
     }
 
     if (uiState.reviewing) {
-        BusyCard(stringResource(R.string.reviewing), onStop)
+        val reviewing = stringResource(R.string.reviewing)
+        BusyCard(uiState.progress?.let { "$reviewing ($it)" } ?: reviewing, onStop)
     }
 
     if (uiState.generating) {

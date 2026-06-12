@@ -34,6 +34,42 @@ class JsonParseTest {
     }
 
     @Test
+    fun toleratesTrailingComma() {
+        assertEquals(listOf("João", "Maria"), LlmResponseParser.parseTerms("[\"João\", \"Maria\",]"))
+    }
+
+    @Test
+    fun extractsStringValuesFromObjectItems() {
+        val raw = "[{\"termo\": \"João Souza\"}, {\"termo\": \"(11) 98888-7777\"}]"
+        assertEquals(listOf("João Souza", "(11) 98888-7777"), LlmResponseParser.parseTerms(raw))
+    }
+
+    @Test
+    fun fallsBackToBulletList() {
+        val raw = "Dados pessoais encontrados:\n- João Souza\n- Hospital Santa Casa\n"
+        assertEquals(listOf("João Souza", "Hospital Santa Casa"), LlmResponseParser.parseTerms(raw))
+    }
+
+    @Test
+    fun fallsBackToNumberedList() {
+        val raw = "1. Maria da Silva\n2) Dr. Carlos\n"
+        assertEquals(listOf("Maria da Silva", "Dr. Carlos"), LlmResponseParser.parseTerms(raw))
+    }
+
+    @Test
+    fun fallsBackToQuotedLines() {
+        val raw = "\"João Souza\",\n\"Clínica Vida\"\n"
+        assertEquals(listOf("João Souza", "Clínica Vida"), LlmResponseParser.parseTerms(raw))
+    }
+
+    @Test
+    fun dropsOverlongChatterEntries() {
+        val chatter = "Este trecho do documento não contém nenhum dado pessoal sensível que precise " +
+            "ser removido segundo a LGPD"
+        assertEquals(listOf("Ana"), LlmResponseParser.parseTerms("- Ana\n- $chatter"))
+    }
+
+    @Test
     fun returnsEmptyForEmptyArray() {
         assertEquals(emptyList<String>(), LlmResponseParser.parseTerms("[]"))
     }

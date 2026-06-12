@@ -255,7 +255,9 @@ class LlmRepositoryImpl @Inject constructor(
         private const val TOP_K = 40
         private const val TOP_P = 0.95f
 
-        // Low temperature for deterministic, structured (JSON) extraction.
-        private const val TEMPERATURE = 0.3f
+        // Near-greedy decoding: every prompt in this app asks for a tiny structured answer
+        // (a JSON array), so creativity only hurts — small models stay on-format far more
+        // reliably at low temperature.
+        private const val TEMPERATURE = 0.1f
     }
 }

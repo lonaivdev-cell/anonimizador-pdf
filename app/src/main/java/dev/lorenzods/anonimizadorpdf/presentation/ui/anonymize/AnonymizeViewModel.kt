@@ -139,29 +139,62 @@ class AnonymizeViewModel @Inject constructor(
         }
     }
 
-    /** Stage 2a: LLM reviews the candidate list and deselects (but keeps) non-sensitive terms. */
+    /**
+     * Stage 2a: the LLM reviews the candidate list and deselects (but keeps) non-sensitive terms.
+     *
+     * Only semantically ambiguous chips (names, organizations, unclassified terms) are sent — the
+     * structured pattern hits (CPF, telefone, e-mail, datas…) are deterministic, so asking a small
+     * model to re-judge them adds tokens and risk for zero gain. Long lists go out in small
+     * batches; a batch whose answer can't be parsed is left exactly as the user had it.
+     */
     fun reviewWithLlm() {
-        val terms = _uiState.value.chips.map { it.term }
-        if (terms.isEmpty() || _uiState.value.busy) return
+        if (_uiState.value.busy) return
+        val reviewable = _uiState.value.chips
+            .filter { it.category in REVIEWABLE_CATEGORIES }
+            .map { it.term }
+        if (reviewable.isEmpty()) {
+            _events.tryEmit(AnonymizeEvent.Message(R.string.review_nothing))
+            return
+        }
         reviewJob?.cancel()
         _uiState.update { it.copy(reviewing = true, errorText = null) }
         reviewJob = viewModelScope.launch {
             try {
-                val builder = StringBuilder()
-                reviewSuggestions.stream(terms).collect { builder.append(it) }
-                val kept = LlmResponseParser.parseTerms(builder.toString()).map { it.lowercase() }.toSet()
-                if (kept.isEmpty()) {
+                val batches = reviewable.chunked(ReviewSuggestionsUseCase.BATCH_SIZE)
+                val judged = mutableSetOf<String>()
+                val sensitive = mutableSetOf<String>()
+                for ((index, batch) in batches.withIndex()) {
+                    if (batches.size > 1) {
+                        _uiState.update { it.copy(progress = "${index + 1}/${batches.size}") }
+                    }
+                    val builder = StringBuilder()
+                    reviewSuggestions.stream(batch).collect { builder.append(it) }
+                    val keep = LlmResponseParser.parseReviewSelection(builder.toString(), batch)
+                    // An empty answer is indistinguishable from a failed one — treat it as "no
+                    // opinion" and keep the batch untouched rather than deselect everything.
+                    if (keep.isNotEmpty()) {
+                        judged += batch.map { it.lowercase() }
+                        sensitive += keep.map { it.lowercase() }
+                    }
+                }
+                if (sensitive.isEmpty()) {
                     // The model returned nothing usable — never silently wipe the user's list.
-                    _uiState.update { it.copy(reviewing = false) }
+                    _uiState.update { it.copy(reviewing = false, progress = null) }
                     _events.emit(AnonymizeEvent.Message(R.string.review_no_result))
                     return@launch
                 }
                 _uiState.update { state ->
                     state.copy(
                         reviewing = false,
+                        progress = null,
                         chips = state.chips.map { chip ->
-                            val sensitive = chip.term.lowercase() in kept
-                            chip.copy(selected = sensitive, filteredByAi = !sensitive)
+                            val key = chip.term.lowercase()
+                            if (key !in judged) {
+                                chip
+                            } else {
+                                val isSensitive = key in sensitive
+                                chip.copy(selected = isSensitive, filteredByAi = !isSensitive)
+                            }
                         },
                     )
                 }
@@ -169,10 +202,14 @@ class AnonymizeViewModel @Inject constructor(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: LlmNotReadyException) {
-                _uiState.update { it.copy(reviewing = false, modelAvailable = false) }
+                _uiState.update { it.copy(reviewing = false, progress = null, modelAvailable = false) }
             } catch (e: Exception) {
                 _uiState.update {
-                    it.copy(reviewing = false, errorText = e.message ?: "Falha na revisão pelo modelo.")
+                    it.copy(
+                        reviewing = false,
+                        progress = null,
+                        errorText = e.message ?: "Falha na revisão pelo modelo.",
+                    )
                 }
             }
         }
@@ -197,7 +234,10 @@ class AnonymizeViewModel @Inject constructor(
                         builder.append(token)
                         _uiState.update { it.copy(streamingText = builder.toString()) }
                     }
+                    // The prompt asks for verbatim copies; anything not present in the chunk is
+                    // hallucinated and would only clutter the chip list.
                     val terms = LlmResponseParser.parseTerms(builder.toString())
+                        .filter { chunk.contains(it, ignoreCase = true) }
                     if (terms.isNotEmpty()) {
                         _uiState.update { it.copy(chips = mergeChips(it.chips, terms)) }
                     }
@@ -355,5 +395,13 @@ class AnonymizeViewModel @Inject constructor(
         // Characters per chunk — keeps prompt + chunk + output within the model's context window
         // (see LlmRepositoryImpl.MAX_TOKENS). ~1500 chars ≈ a few hundred tokens.
         const val CHUNK_CHARS = 1500
+
+        // Chip categories where small-model judgement adds value (is this a name or a medical
+        // term?). Everything else came from a deterministic pattern and is never sent for review.
+        val REVIEWABLE_CATEGORIES = setOf(
+            RedactionCategory.NAME,
+            RedactionCategory.ORGANIZATION,
+            RedactionCategory.OTHER,
+        )
     }
 }

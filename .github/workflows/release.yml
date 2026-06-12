@@ -42,15 +42,28 @@ jobs:
         id: ver
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "tag=${{ github.event.inputs.version }}" >> "$GITHUB_OUTPUT"
+            TAG="${{ github.event.inputs.version }}"
           else
-            echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+            TAG="${GITHUB_REF_NAME}"
           fi
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+
+          # Derive the Android versionName/versionCode from the tag so the APK's
+          # internal version always matches the release tag (no manual drift).
+          VERSION_NAME="${TAG#[vV]}"
+          CORE="$(echo "$VERSION_NAME" | grep -oE '^[0-9]+\.[0-9]+\.[0-9]+' || echo '0.0.0')"
+          IFS='.' read -r MAJ MIN PAT <<< "$CORE"
+          VERSION_CODE=$((10#$MAJ * 10000 + 10#$MIN * 100 + 10#$PAT))
+          echo "name=${VERSION_NAME}" >> "$GITHUB_OUTPUT"
+          echo "code=${VERSION_CODE}" >> "$GITHUB_OUTPUT"
+          echo "Resolved versionName=${VERSION_NAME} versionCode=${VERSION_CODE}"
 
       - name: Build debug APK
         run: |
           chmod +x ./gradlew
-          ./gradlew assembleDebug --stacktrace
+          ./gradlew assembleDebug --stacktrace \
+            -PversionName="${{ steps.ver.outputs.name }}" \
+            -PversionCode="${{ steps.ver.outputs.code }}"
 
       - name: Stage APK
         run: |

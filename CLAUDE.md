@@ -25,8 +25,10 @@ This app handles sensitive patient data. Do not weaken any of these:
 - No Firebase / Analytics / Crashlytics / remote logging. No `com.google.android.gms:*`
   (excluded from the MediaPipe dependency).
 - Extracted text and anonymized output live **only** in Room (app-internal storage). No temp files
-  on shared external storage.
+  on shared external storage. The **learned-terms** list (names/instituições the user has confirmed,
+  used to seed future detection) lives in app-internal DataStore — same offline guarantee.
 - **Never log extracted/clinical text content.** Log sizes only (e.g. `"extraction complete, N chars"`).
+  This includes learned terms — never log their contents.
 
 ## Architecture
 
@@ -45,10 +47,15 @@ Biblioteca / Configurações) + single pane; tablet (Expanded) = `PermanentNavig
 detail pane and as a standalone route opened from Home. The anonymize screen is a single flow:
 offline `PiiDetector` suggestions (grouped by `RedactionCategory`, pre-selected by `Confidence` —
 LOW starts unchecked), tap-to-redact (`RedactableText`), a manual term field, and — only when a
-model is loaded — optional LLM review/deep-scan. The preview has a persisted toggle that swaps
-between the raw redacted text and the `OutputFormatter` layout. Saved `AnonymizedVersion`s surface
-in the viewer's "Versões" tab; anonymized exports always use neutral timestamped filenames (the
-original PDF name may identify the patient).
+model is loaded — optional LLM review/deep-scan. On save, the confirmed `NAME`/`ORGANIZATION` terms
+are persisted to the **learned-terms** list (`AppPreferences`); `PiiDetector.detect(text, learnedTerms)`
+folds them back in as HIGH-confidence hits on later documents, so the offline detector learns recurring
+people/instituições with no model. The list is viewable/clearable in **Settings → Aprendizado offline**.
+The preview has a persisted toggle that swaps between the raw redacted text and the `OutputFormatter`
+layout; every output surface (anonymize preview, viewer version cards/preview) offers **Copiar**
+(clipboard) and **Compartilhar** side by side. Saved `AnonymizedVersion`s surface in the viewer's
+"Versões" tab; anonymized exports always use neutral timestamped filenames (the original PDF name may
+identify the patient).
 
 ## Commands
 

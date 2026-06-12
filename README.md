@@ -34,12 +34,15 @@ Cada termo é substituído por `[ANONIMIZADO]` e o resultado é exportado como `
   selecionadas, baixa apenas sugerida.
 - **Toque-para-marcar:** qualquer palavra do texto vira termo de redação com um toque; campo para
   digitar termos manualmente.
+- **Aprendizado offline:** os nomes e instituições que você confirma ao salvar são memorizados e
+  passam a ser sugeridos automaticamente (confiança alta) nos próximos documentos. A lista fica só
+  no aparelho e pode ser apagada em Configurações → Aprendizado offline.
 - **IA opcional:** com um modelo carregado, revise a lista de candidatos ou faça uma varredura
   completa do documento (streaming token a token).
 - Redação por **palavra inteira** (marcar "Ana" não afeta "Anamnese"), sem diferenciar
   maiúsculas/acentos.
-- Pré-visualização com destaque de `[ANONIMIZADO]`, exportação e compartilhamento com nome de
-  arquivo neutro (sem vazar o nome original do PDF).
+- Pré-visualização com destaque de `[ANONIMIZADO]`, com **copiar para a área de transferência**,
+  exportação e compartilhamento (com nome de arquivo neutro, sem vazar o nome original do PDF).
 - **Saída organizada para IA (alternável):** títulos, parágrafos reagrupados e artefatos de página
   removidos para facilitar a leitura por um LLM externo; desligue para exportar o texto redigido
   sem alterações.

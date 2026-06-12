@@ -238,6 +238,40 @@ class PiiDetectorTest {
         assertTrue(result.none { it.category == RedactionCategory.NAME && it.confidence != Confidence.LOW })
     }
 
+    // ---- learned terms (offline learning) ----
+
+    @Test
+    fun detectsLearnedTermAsHighConfidence() {
+        // A name confirmed on a previous document is suggested automatically here, even though no
+        // trigger word or chat prefix accompanies it.
+        val d = detect("Encaminhado por solicitação externa para Valdomiro avaliar o caso.", listOf("Valdomiro"))
+            .term("Valdomiro")
+        assertNotNull(d)
+        assertEquals(RedactionCategory.NAME, d!!.category)
+        assertEquals(Confidence.HIGH, d.confidence)
+    }
+
+    @Test
+    fun learnedTermMatchesRegardlessOfCase() {
+        val d = detect("RELATÓRIO ASSINADO POR VALDOMIRO PEREIRA.", listOf("Valdomiro Pereira"))
+            .term("Valdomiro Pereira")
+        assertNotNull(d)
+        assertEquals(Confidence.HIGH, d!!.confidence)
+    }
+
+    @Test
+    fun learnedTermDoesNotMatchInsideLongerWord() {
+        // Whole-word only: a learned "Ana" must not redact "Anamnese".
+        val result = detect("Anamnese completa sem alterações.", listOf("Ana"))
+        assertTrue(result.none { it.term.equals("Ana", ignoreCase = true) })
+    }
+
+    @Test
+    fun absentLearnedTermIsNotSuggested() {
+        val result = detect("Hemograma dentro dos parâmetros normais.", listOf("Valdomiro"))
+        assertTrue(result.none { it.term.equals("Valdomiro", ignoreCase = true) })
+    }
+
     // ---- general behaviour ----
 
     @Test

@@ -117,7 +117,10 @@ class AnonymizeViewModel @Inject constructor(
         if (_uiState.value.detecting) return
         _uiState.update { it.copy(detecting = true) }
         viewModelScope.launch {
-            val detections = withContext(Dispatchers.Default) { PiiDetector.detect(doc.extractedText) }
+            val learned = preferences.learnedTerms.first()
+            val detections = withContext(Dispatchers.Default) {
+                PiiDetector.detect(doc.extractedText, learned)
+            }
             _uiState.update { state ->
                 val seen = state.chips.map { it.term.lowercase() }.toMutableSet()
                 val additions = detections.mapNotNull { d ->
@@ -361,6 +364,13 @@ class AnonymizeViewModel @Inject constructor(
                 ),
             )
             pdfRepository.updateStatus(doc.id, DocumentStatus.ANONYMIZED)
+            // Learn the confirmed names/instituições so future documents auto-suggest them. Only
+            // these categories generalise across documents — structured IDs (CPF, datas…) are
+            // deterministic patterns and a single patient's number won't recur, so they're skipped.
+            val learnable = _uiState.value.chips
+                .filter { it.selected && it.category in LEARNABLE_CATEGORIES }
+                .map { it.term }
+            preferences.addLearnedTerms(learnable)
             _uiState.update { it.copy(saved = true) }
             _events.emit(AnonymizeEvent.Message(R.string.anonymized_saved))
         }
@@ -402,6 +412,13 @@ class AnonymizeViewModel @Inject constructor(
             RedactionCategory.NAME,
             RedactionCategory.ORGANIZATION,
             RedactionCategory.OTHER,
+        )
+
+        // Categories worth remembering across documents: people and institutions recur, whereas a
+        // CPF/RG/telefone is unique to one patient and already caught deterministically.
+        val LEARNABLE_CATEGORIES = setOf(
+            RedactionCategory.NAME,
+            RedactionCategory.ORGANIZATION,
         )
     }
 }

@@ -128,7 +128,14 @@ object PiiDetector {
         """^([\p{Lu}][\p{L}'’.-]{1,29}(?:\s+[\p{L}'’.-]{1,29}){0,4}):\s*(.*)$""",
     )
 
-    fun detect(text: String): List<Detection> {
+    /**
+     * @param learnedTerms terms the user confirmed on previous documents (see
+     * [dev.lorenzods.anonimizadorpdf.data.preferences.AppPreferences.learnedTerms]). Each is matched
+     * whole-word, case-/accent-insensitively — the same rule the redactor uses — and surfaced as a
+     * HIGH-confidence detection, so a name confirmed once is suggested automatically wherever it
+     * recurs. This is how the offline detector "learns" without any model or network.
+     */
+    fun detect(text: String, learnedTerms: Collection<String> = emptyList()): List<Detection> {
         if (text.isBlank()) return emptyList()
         val found = ArrayList<Detection>()
 
@@ -161,12 +168,35 @@ object PiiDetector {
             found.addAll(detectNames(line))
         }
 
+        // User-confirmed terms from earlier documents — the "learning" pass.
+        addLearnedTerms(text, learnedTerms, found)
+
         // Deduplicate case-insensitively, keeping the strongest confidence per term.
         return found
             .filter { it.term.isNotBlank() }
             .groupBy { it.term.lowercase() }
             .map { (_, group) -> group.minByOrNull { it.confidence.ordinal }!! }
             .sortedWith(compareBy({ it.confidence.ordinal }, { it.term.lowercase() }))
+    }
+
+    /**
+     * Flags every learned term that appears in the text. Matching mirrors [ApplyRedactionsUseCase]:
+     * case-insensitive, Unicode case-folded, and whole-word (a learned "Ana" never hits "Anamnese"),
+     * so a confirmed term redacts reliably regardless of the casing in the new document. The stored
+     * category is inferred with [RedactionClassifier]; an unclassifiable term defaults to NAME, since
+     * the learned set only ever holds names/instituições.
+     */
+    private fun addLearnedTerms(text: String, terms: Collection<String>, found: MutableList<Detection>) {
+        for (raw in terms) {
+            val term = raw.trim()
+            if (term.isBlank()) continue
+            val pattern = Regex("(?iu)(?<![\\p{L}\\p{N}])${Regex.escape(term)}(?![\\p{L}\\p{N}])")
+            if (pattern.containsMatchIn(text)) {
+                val category = RedactionClassifier.classify(term)
+                    .takeUnless { it == RedactionCategory.OTHER } ?: RedactionCategory.NAME
+                found.add(Detection(term, category, Confidence.HIGH))
+            }
+        }
     }
 
     /**

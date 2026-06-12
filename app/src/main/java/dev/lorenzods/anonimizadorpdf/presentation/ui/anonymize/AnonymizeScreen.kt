@@ -26,6 +26,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.FilterAlt
 import androidx.compose.material.icons.filled.Refresh
@@ -59,9 +60,11 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -87,7 +90,9 @@ fun AnonymizeScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
+    val clipboard = LocalClipboardManager.current
     val scope = rememberCoroutineScope()
+    val copiedMsg = stringResource(R.string.copied)
 
     LaunchedEffect(Unit) {
         viewModel.events.collect { event ->
@@ -154,6 +159,10 @@ fun AnonymizeScreen(
                     onEdit = viewModel::dismissPreview,
                     onSave = viewModel::save,
                     onExport = { exportLauncher.launch(exportName()) },
+                    onCopy = {
+                        clipboard.setText(AnnotatedString(preview))
+                        scope.launch { snackbarHostState.showSnackbar(copiedMsg) }
+                    },
                     onShare = { scope.launch { shareText(context, exportName(), preview) } },
                 )
             } else {
@@ -497,6 +506,7 @@ private fun PreviewContent(
     onEdit: () -> Unit,
     onSave: () -> Unit,
     onExport: () -> Unit,
+    onCopy: () -> Unit,
     onShare: () -> Unit,
 ) {
     Column(
@@ -572,6 +582,11 @@ private fun PreviewContent(
                 Icon(Icons.Filled.Download, contentDescription = null)
                 Spacer(Modifier.width(8.dp))
                 Text(stringResource(R.string.export_txt))
+            }
+            FilledTonalButton(onClick = onCopy) {
+                Icon(Icons.Filled.ContentCopy, contentDescription = null)
+                Spacer(Modifier.width(8.dp))
+                Text(stringResource(R.string.copy))
             }
             FilledTonalButton(onClick = onShare) {
                 Icon(Icons.Filled.Share, contentDescription = null)

@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -42,6 +43,11 @@ class SettingsViewModel @Inject constructor(
 
     val dynamicColor: StateFlow<Boolean> =
         preferences.dynamicColor.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    /** How many terms the offline detector has learned from confirmed redactions. */
+    val learnedTermsCount: StateFlow<Int> = preferences.learnedTerms
+        .map { it.size }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
 
     private val _copying = MutableStateFlow(false)
     val copying: StateFlow<Boolean> = _copying.asStateFlow()
@@ -93,9 +99,18 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch { preferences.setOnboardingDone(false) }
     }
 
+    fun clearLearnedTerms() {
+        viewModelScope.launch {
+            preferences.clearLearnedTerms()
+            emit(R.string.learned_terms_cleared)
+        }
+    }
+
     fun deleteAllData() {
         viewModelScope.launch {
             pdfRepository.deleteAll()
+            // "Apagar todos os dados" must also wipe the learned PII, not just Room.
+            preferences.clearLearnedTerms()
             emit(R.string.all_data_deleted)
         }
     }

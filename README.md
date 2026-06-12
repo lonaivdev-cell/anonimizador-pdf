@@ -3,9 +3,12 @@
 Ferramenta **Android totalmente offline** para anonimizar PDFs clínicos (registros de conversa e
 resultados laboratoriais de pacientes) antes de enviá-los a um LLM externo para pesquisa.
 
-O app extrai o texto do PDF **no dispositivo**, usa um **LLM on-device** (MediaPipe) para sugerir
-termos sensíveis segundo a **LGPD** — ou permite marcá-los manualmente — substitui cada termo por
-`[ANONIMIZADO]` e exporta um `.txt` anonimizado. Nada sai do aparelho.
+O app extrai o texto do PDF **no dispositivo** e sugere os termos sensíveis segundo a **LGPD**
+instantaneamente, com um **detector offline determinístico** (nomes brasileiros, remetentes de
+conversa, CPF, RG, CRM, CNS, telefones, e-mails, endereços, datas, prontuários) — sem precisar de
+modelo de IA. Toque nas palavras para marcar/desmarcar, ou refine com um **LLM on-device opcional**.
+Cada termo é substituído por `[ANONIMIZADO]` e o resultado é exportado como `.txt` — opcionalmente
+**reformatado para leitura por LLM** (alternável). Nada sai do aparelho.
 
 > ⚠️ Ferramenta pessoal de uso clínico/educacional, **sem fins comerciais**. Licença MIT.
 
@@ -26,10 +29,20 @@ termos sensíveis segundo a **LGPD** — ou permite marcá-los manualmente — s
 - Biblioteca: lista, busca por nome, filtros (TODOS / BRUTO / PROCESSADO / ANONIMIZADO),
   arrastar-para-excluir com desfazer.
 - Visualizador com seleção de texto, copiar e exportar `.txt`.
-- **Modo A (LLM):** sugestões automáticas transmitidas token a token, convertidas em chips
-  selecionáveis.
-- **Modo B (manual):** seleção de trechos do texto adicionada à lista de termos.
-- Pré-visualização com destaque de `[ANONIMIZADO]`, exportação e compartilhamento.
+- **Sugestões offline instantâneas:** detector determinístico (regex + dicionário de nomes
+  brasileiros + padrões de chat) agrupado por categoria, com nível de confiança — alta/média já
+  selecionadas, baixa apenas sugerida.
+- **Toque-para-marcar:** qualquer palavra do texto vira termo de redação com um toque; campo para
+  digitar termos manualmente.
+- **IA opcional:** com um modelo carregado, revise a lista de candidatos ou faça uma varredura
+  completa do documento (streaming token a token).
+- Redação por **palavra inteira** (marcar "Ana" não afeta "Anamnese"), sem diferenciar
+  maiúsculas/acentos.
+- Pré-visualização com destaque de `[ANONIMIZADO]`, exportação e compartilhamento com nome de
+  arquivo neutro (sem vazar o nome original do PDF).
+- **Saída organizada para IA (alternável):** títulos, parágrafos reagrupados e artefatos de página
+  removidos para facilitar a leitura por um LLM externo; desligue para exportar o texto redigido
+  sem alterações.
 - Layout adaptativo: telefone (painel único + barra de navegação) e tablet (dois painéis
   lista/detalhe + gaveta de navegação).
 - Onboarding na primeira execução; tela de configurações (modelo, prompt, pasta de exportação,

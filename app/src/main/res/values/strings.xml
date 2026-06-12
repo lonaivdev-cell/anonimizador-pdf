@@ -99,8 +99,7 @@
     <string name="export_txt">Exportar .txt</string>
     <string name="exported">Arquivo exportado</string>
     <string name="export_failed">Falha ao exportar o arquivo</string>
-    <string name="suggest_anonymization">Sugerir anonimização</string>
-    <string name="mark_manually">Marcar manualmente</string>
+    <string name="anonymize_action">Anonimizar</string>
     <string name="empty_text">Sem texto para exibir.</string>
     <string name="versions_empty_title">Nenhuma versão anonimizada</string>
     <string name="versions_empty_message">Anonimize este documento para criar e guardar versões aqui.</string>
@@ -108,56 +107,46 @@
     <string name="version_open">Abrir</string>
     <string name="version_share">Compartilhar</string>
     <string name="version_delete">Excluir versão</string>
-    <string name="version_deleted">Versão excluída</string>
     <string name="version_preview_title">Versão anonimizada</string>
 
     <!-- Anonymize -->
     <string name="anonymize_title">Anonimizar</string>
-    <string name="mode_a_title">Automático (IA)</string>
-    <string name="mode_b_title">Manual</string>
     <string name="thinking">Analisando…</string>
-    <string name="generating">Gerando sugestões…</string>
-    <string name="generate">Gerar sugestões</string>
     <string name="stop">Parar</string>
     <string name="save">Salvar</string>
+    <string name="saved_done">Salva ✓</string>
     <string name="edit">Editar</string>
     <string name="apply_selected">Pré-visualizar resultado</string>
-    <string name="add_to_list">Adicionar à lista</string>
-    <string name="suggested_terms">Termos sugeridos</string>
     <string name="redaction_list">Termos para anonimizar</string>
-    <string name="no_terms">Toque nas palavras do texto abaixo para marcá-las, ou digite um termo.</string>
-    <string name="no_suggestions">Nenhum termo sugerido ainda. Toque em \"Gerar sugestões\".</string>
-    <string name="selection_hint">Selecione um trecho do texto e toque em \"Adicionar à lista\".</string>
-    <string name="manual_hint">Toque nas palavras para marcá-las, ou digite um termo e adicione.</string>
+    <string name="no_suggestions">Nenhum dado sensível marcado ainda. Toque nas palavras do texto abaixo ou digite um termo.</string>
     <string name="tap_to_redact_hint">Toque em qualquer palavra do texto para marcá-la (toque de novo para desmarcar).</string>
     <string name="term_to_remove">Termo a remover</string>
-    <string name="document_text_label">Texto do documento</string>
     <string name="add">Adicionar</string>
     <string name="clear_all">Limpar</string>
     <string name="select_all_suggestions">Selecionar todos</string>
     <string name="redactions_selected">%1$d selecionados</string>
     <string name="preview_title">Pré-visualização</string>
-    <string name="preview_subtitle">Os termos marcados foram substituídos por [ANONIMIZADO].</string>
     <string name="preview_summary">%1$s removidos · %2$d ocorrências</string>
-    <string name="save_and_export">Salvar e exportar</string>
     <string name="share">Compartilhar</string>
     <string name="anonymized_saved">Versão anonimizada salva</string>
-    <string name="redacted_placeholder">[ANONIMIZADO]</string>
-    <string name="error_llm">Falha na inferência do modelo.</string>
-    <string name="regenerate">Gerar novamente</string>
 
     <!-- Detection pipeline -->
     <string name="auto_summary">%1$d sugestões automáticas (offline)</string>
-    <string name="auto_summary_empty">Nenhum dado sensível detectado automaticamente. Toque nas palavras para marcar, ou use a IA.</string>
+    <string name="auto_summary_empty">Nenhum dado sensível detectado automaticamente. Toque nas palavras para marcar.</string>
+    <string name="detecting">Detectando dados sensíveis…</string>
     <string name="detect_again">Detectar novamente</string>
     <string name="review_with_ai">Revisar com IA</string>
     <string name="deep_scan">Varredura completa</string>
     <string name="reviewing">Revisando sugestões com a IA…</string>
-    <string name="ai_needs_model">Carregue um modelo para usar a revisão e a varredura por IA. As sugestões automáticas funcionam offline, sem modelo.</string>
+    <string name="ai_section_title">Revisão com IA (opcional)</string>
+    <string name="ai_optional_hint">IA opcional: carregue um modelo em Configurações</string>
     <string name="filtered_note">Itens com ✦ foram apontados como não sensíveis pela IA e desmarcados — confira antes de aplicar.</string>
     <string name="review_done">Revisão por IA concluída</string>
     <string name="review_no_result">A IA não retornou um resultado válido. As sugestões foram mantidas.</string>
-    <string name="confidence_low_hint">Sugestões de baixa confiança começam desmarcadas.</string>
+
+    <!-- Output formatting -->
+    <string name="format_toggle">Saída organizada para IA</string>
+    <string name="format_toggle_desc">Reorganiza títulos e parágrafos para facilitar a leitura por um LLM. Desative para usar o texto original redigido.</string>
 
     <!-- Redaction categories -->
     <string name="category_name">Nomes</string>
@@ -167,11 +156,6 @@
     <string name="category_address">Endereços</string>
     <string name="category_organization">Instituições</string>
     <string name="category_other">Outros</string>
-
-    <!-- No model loaded -->
-    <string name="no_model_title">Nenhum modelo carregado</string>
-    <string name="no_model_message">Para usar a sugestão automática, carregue um modelo LLM (.task ou .gguf) em Configurações. Você ainda pode marcar termos manualmente.</string>
-    <string name="go_to_settings">Ir para Configurações</string>
 
     <!-- Settings -->
     <string name="settings_title">Configurações</string>
@@ -184,7 +168,7 @@
     <string name="dynamic_color_desc">Usar as cores do papel de parede (Android 12+).</string>
     <string name="settings_section_model">Modelo de IA</string>
     <string name="settings_model_path">Caminho do modelo</string>
-    <string name="pick_model">Selecionar modelo (.task ou .gguf)</string>
+    <string name="pick_model">Selecionar modelo (.task, .litertlm ou .gguf)</string>
     <string name="no_model_selected">Nenhum modelo selecionado</string>
     <string name="model_loaded">Modelo carregado</string>
     <string name="settings_section_prompt">Prompt do sistema</string>

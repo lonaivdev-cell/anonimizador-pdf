@@ -104,7 +104,9 @@ class PdfRepositoryImpl @Inject constructor(
                 Log.i(TAG, "extraction complete, ${text.length} chars, $pageCount pages")
                 emit(ExtractionProgress.Success(text, pageCount))
             }
-        } catch (e: IOException) {
+        } catch (e: Exception) {
+            // pdfbox throws RuntimeExceptions on malformed/encrypted PDFs, not just IOExceptions.
+            // Never log content or filename — class name only.
             Log.e(TAG, "extraction failed: ${e.javaClass.simpleName}")
             emit(ExtractionProgress.Error(ExtractionError.IO_ERROR))
         }

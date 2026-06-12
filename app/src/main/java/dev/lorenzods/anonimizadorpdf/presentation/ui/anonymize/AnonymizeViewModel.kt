@@ -17,6 +17,7 @@ import dev.lorenzods.anonimizadorpdf.domain.repository.LlmRepository
 import dev.lorenzods.anonimizadorpdf.domain.repository.PdfRepository
 import dev.lorenzods.anonimizadorpdf.domain.usecase.ApplyRedactionsUseCase
 import dev.lorenzods.anonimizadorpdf.domain.usecase.LlmResponseParser
+import dev.lorenzods.anonimizadorpdf.domain.usecase.OutputFormatter
 import dev.lorenzods.anonimizadorpdf.domain.usecase.PiiDetector
 import dev.lorenzods.anonimizadorpdf.domain.usecase.RedactionClassifier
 import dev.lorenzods.anonimizadorpdf.domain.usecase.ReviewSuggestionsUseCase
@@ -24,6 +25,7 @@ import dev.lorenzods.anonimizadorpdf.domain.usecase.SuggestRedactionsUseCase
 import dev.lorenzods.anonimizadorpdf.domain.usecase.TextChunker
 import dev.lorenzods.anonimizadorpdf.presentation.navigation.Screen
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -33,9 +35,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
-
-enum class AnonymizeMode { AUTO, MANUAL }
 
 data class RedactionChip(
     val term: String,
@@ -48,19 +49,25 @@ data class RedactionChip(
 
 data class AnonymizeUiState(
     val document: PdfDocument? = null,
-    val mode: AnonymizeMode = AnonymizeMode.AUTO,
     val modelAvailable: Boolean = false,
+    val detecting: Boolean = false,
     val generating: Boolean = false,
     val reviewing: Boolean = false,
     val progress: String? = null,
     val streamingText: String = "",
     val chips: List<RedactionChip> = emptyList(),
-    val previewText: String? = null,
+    /** The redacted text exactly as produced — always the source of truth. */
+    val previewRaw: String? = null,
+    /** The redacted text after OutputFormatter — shown/exported only while [formatEnabled]. */
+    val previewFormatted: String? = null,
+    val formatEnabled: Boolean = false,
+    val saved: Boolean = false,
     val errorText: String? = null,
 ) {
     val selectedTerms: List<String> get() = chips.filter { it.selected }.map { it.term }
     val selectedCount: Int get() = chips.count { it.selected }
     val busy: Boolean get() = generating || reviewing
+    val previewDisplay: String? get() = if (formatEnabled) previewFormatted ?: previewRaw else previewRaw
 }
 
 sealed interface AnonymizeEvent {
@@ -79,11 +86,8 @@ class AnonymizeViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val docId: Long = checkNotNull(savedStateHandle.get<Long>(Screen.Anonymize.ARG_DOC_ID))
-    private val initialManual: Boolean = savedStateHandle.get<Boolean>(Screen.Anonymize.ARG_MANUAL) ?: false
 
-    private val _uiState = MutableStateFlow(
-        AnonymizeUiState(mode = if (initialManual) AnonymizeMode.MANUAL else AnonymizeMode.AUTO),
-    )
+    private val _uiState = MutableStateFlow(AnonymizeUiState())
     val uiState = _uiState.asStateFlow()
 
     private val _events = MutableSharedFlow<AnonymizeEvent>(extraBufferCapacity = 4)
@@ -96,40 +100,42 @@ class AnonymizeViewModel @Inject constructor(
         viewModelScope.launch {
             val doc = pdfRepository.getDocument(docId)
             val available = llmRepository.isModelAvailable()
-            _uiState.update { it.copy(document = doc, modelAvailable = available) }
+            val formatEnabled = preferences.formatOutput.first()
+            _uiState.update {
+                it.copy(document = doc, modelAvailable = available, formatEnabled = formatEnabled)
+            }
             // Stage 1: instant, offline candidate detection.
-            if (doc != null) applyDetections(PiiDetector.detect(doc.extractedText))
+            if (doc != null) runDetection()
         }
     }
 
-    fun setMode(mode: AnonymizeMode) = _uiState.update { it.copy(mode = mode) }
-
     fun clearError() = _uiState.update { it.copy(errorText = null) }
 
-    /** Re-runs the offline detector, merging any new candidates without disturbing existing chips. */
+    /** Runs the offline detector, merging any new candidates without disturbing existing chips. */
     fun runDetection() {
         val doc = _uiState.value.document ?: return
-        applyDetections(PiiDetector.detect(doc.extractedText))
-    }
-
-    private fun applyDetections(detections: List<PiiDetector.Detection>) {
-        _uiState.update { state ->
-            val seen = state.chips.map { it.term.lowercase() }.toMutableSet()
-            val additions = detections.mapNotNull { d ->
-                val key = d.term.lowercase()
-                if (key in seen) {
-                    null
-                } else {
-                    seen.add(key)
-                    RedactionChip(
-                        term = d.term,
-                        selected = d.confidence != Confidence.LOW,
-                        category = d.category,
-                        confidence = d.confidence,
-                    )
+        if (_uiState.value.detecting) return
+        _uiState.update { it.copy(detecting = true) }
+        viewModelScope.launch {
+            val detections = withContext(Dispatchers.Default) { PiiDetector.detect(doc.extractedText) }
+            _uiState.update { state ->
+                val seen = state.chips.map { it.term.lowercase() }.toMutableSet()
+                val additions = detections.mapNotNull { d ->
+                    val key = d.term.lowercase()
+                    if (key in seen) {
+                        null
+                    } else {
+                        seen.add(key)
+                        RedactionChip(
+                            term = d.term,
+                            selected = d.confidence != Confidence.LOW,
+                            category = d.category,
+                            confidence = d.confidence,
+                        )
+                    }
                 }
+                state.copy(detecting = false, chips = state.chips + additions)
             }
-            state.copy(chips = state.chips + additions)
         }
     }
 
@@ -279,25 +285,43 @@ class AnonymizeViewModel @Inject constructor(
 
     fun applyRedactions() {
         val doc = _uiState.value.document ?: return
-        val preview = applyRedactions(doc.extractedText, _uiState.value.selectedTerms)
-        _uiState.update { it.copy(previewText = preview) }
+        val terms = _uiState.value.selectedTerms
+        viewModelScope.launch {
+            val (raw, formatted) = withContext(Dispatchers.Default) {
+                val redacted = applyRedactions(doc.extractedText, terms)
+                redacted to OutputFormatter.organize(redacted)
+            }
+            _uiState.update {
+                it.copy(previewRaw = raw, previewFormatted = formatted, saved = false)
+            }
+        }
     }
 
-    fun dismissPreview() = _uiState.update { it.copy(previewText = null) }
+    /** Toggles the LLM-friendly formatting; the choice is remembered for the next document. */
+    fun setFormatEnabled(enabled: Boolean) {
+        _uiState.update { it.copy(formatEnabled = enabled, saved = false) }
+        viewModelScope.launch { preferences.setFormatOutput(enabled) }
+    }
+
+    fun dismissPreview() = _uiState.update {
+        it.copy(previewRaw = null, previewFormatted = null, saved = false)
+    }
 
     fun save() {
         val doc = _uiState.value.document ?: return
-        val preview = _uiState.value.previewText ?: return
+        val text = _uiState.value.previewDisplay ?: return
+        if (_uiState.value.saved) return
         viewModelScope.launch {
             pdfRepository.saveAnonymizedVersion(
                 AnonymizedVersion(
                     parentDocumentId = doc.id,
-                    anonymizedText = preview,
+                    anonymizedText = text,
                     redactedTerms = _uiState.value.selectedTerms,
                     createdTimestamp = System.currentTimeMillis(),
                 ),
             )
             pdfRepository.updateStatus(doc.id, DocumentStatus.ANONYMIZED)
+            _uiState.update { it.copy(saved = true) }
             _events.emit(AnonymizeEvent.Message(R.string.anonymized_saved))
         }
     }

@@ -10,9 +10,8 @@ sealed class Screen(val route: String) {
         fun create(docId: Long) = "viewer/$docId"
     }
 
-    data object Anonymize : Screen("anonymize/{docId}/{manual}") {
+    data object Anonymize : Screen("anonymize/{docId}") {
         const val ARG_DOC_ID = "docId"
-        const val ARG_MANUAL = "manual"
-        fun create(docId: Long, manual: Boolean) = "anonymize/$docId/$manual"
+        fun create(docId: Long) = "anonymize/$docId"
     }
 }

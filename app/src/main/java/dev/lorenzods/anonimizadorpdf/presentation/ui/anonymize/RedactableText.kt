@@ -72,7 +72,11 @@ private fun wordRangeAt(text: String, index: Int): IntRange? {
 
 private fun Char.isWordChar(): Boolean = isLetterOrDigit() || this == '@' || this == '.' || this == '-'
 
-/** Highlights all case-insensitive occurrences of any [terms] within [text]. */
+/**
+ * Highlights all case-insensitive, **whole-word** occurrences of any [terms] within [text] — the
+ * same boundary rule ApplyRedactionsUseCase uses, so the highlight previews exactly what will be
+ * replaced (e.g. "Ana" never lights up inside "Anamnese").
+ */
 fun buildHighlightedText(
     text: String,
     terms: List<String>,
@@ -89,8 +93,11 @@ fun buildHighlightedText(
         if (needle.length > lower.length) continue
         var from = lower.indexOf(needle)
         while (from >= 0) {
-            ranges.add(from until from + needle.length)
-            from = lower.indexOf(needle, from + needle.length)
+            val end = from + needle.length
+            val boundaryBefore = from == 0 || !lower[from - 1].isLetterOrDigit()
+            val boundaryAfter = end == lower.length || !lower[end].isLetterOrDigit()
+            if (boundaryBefore && boundaryAfter) ranges.add(from until end)
+            from = lower.indexOf(needle, from + 1)
         }
     }
     if (ranges.isEmpty()) return AnnotatedString(text)

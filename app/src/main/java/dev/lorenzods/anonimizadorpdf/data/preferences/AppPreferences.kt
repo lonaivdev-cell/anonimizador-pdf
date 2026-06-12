@@ -25,6 +25,7 @@ class AppPreferences @Inject constructor(
         val ONBOARDING_DONE = booleanPreferencesKey("onboarding_done")
         val THEME_MODE = stringPreferencesKey("theme_mode")
         val DYNAMIC_COLOR = booleanPreferencesKey("dynamic_color")
+        val FORMAT_OUTPUT = booleanPreferencesKey("format_output")
     }
 
     val modelPath: Flow<String?> = context.dataStore.data.map { it[Keys.MODEL_PATH] }
@@ -44,6 +45,13 @@ class AppPreferences @Inject constructor(
     val dynamicColor: Flow<Boolean> =
         context.dataStore.data.map { it[Keys.DYNAMIC_COLOR] ?: false }
 
+    /**
+     * Whether the anonymized output is post-formatted for LLM reading (OutputFormatter). Defaults
+     * to false: the untouched redacted text is always the safe baseline.
+     */
+    val formatOutput: Flow<Boolean> =
+        context.dataStore.data.map { it[Keys.FORMAT_OUTPUT] ?: false }
+
     suspend fun setModelPath(path: String) =
         context.dataStore.edit { it[Keys.MODEL_PATH] = path }
 
@@ -61,6 +69,9 @@ class AppPreferences @Inject constructor(
 
     suspend fun setDynamicColor(enabled: Boolean) =
         context.dataStore.edit { it[Keys.DYNAMIC_COLOR] = enabled }
+
+    suspend fun setFormatOutput(enabled: Boolean) =
+        context.dataStore.edit { it[Keys.FORMAT_OUTPUT] = enabled }
 
     companion object {
         const val DEFAULT_SYSTEM_PROMPT =

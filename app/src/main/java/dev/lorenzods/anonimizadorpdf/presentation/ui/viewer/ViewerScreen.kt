@@ -26,14 +26,12 @@ import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.HistoryEdu
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExtendedFloatingActionButton
-import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -88,7 +86,7 @@ import java.util.Locale
 @Composable
 fun ViewerScreen(
     onBack: () -> Unit,
-    onNavigateToAnonymize: (Long, Boolean) -> Unit,
+    onNavigateToAnonymize: (Long) -> Unit,
     viewModel: ViewerViewModel = hiltViewModel(),
 ) {
     DocumentViewer(
@@ -109,7 +107,7 @@ fun DocumentViewer(
     documentId: Long?,
     showBack: Boolean,
     onBack: () -> Unit,
-    onNavigateToAnonymize: (Long, Boolean) -> Unit,
+    onNavigateToAnonymize: (Long) -> Unit,
     viewModel: ViewerViewModel = hiltViewModel(),
 ) {
     if (documentId != null) {
@@ -137,8 +135,9 @@ fun DocumentViewer(
     ) { uri ->
         val text = pendingExport
         if (uri != null && text != null) {
+            // "wt" truncates an existing document picked through SAF; plain "w" may leave a stale tail.
             val ok = runCatching {
-                context.contentResolver.openOutputStream(uri)?.use { it.write(text.toByteArray()) }
+                context.contentResolver.openOutputStream(uri, "wt")?.use { it.write(text.toByteArray()) }
             }.isSuccess
             scope.launch { snackbarHostState.showSnackbar(if (ok) exportedMsg else exportFailedMsg) }
         }
@@ -194,20 +193,11 @@ fun DocumentViewer(
         floatingActionButton = {
             val current = doc
             if (current != null && current.extractedText.isNotBlank() && selectedTab == 0) {
-                Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    ExtendedFloatingActionButton(
-                        onClick = { onNavigateToAnonymize(current.id, true) },
-                        icon = { Icon(Icons.Filled.Edit, contentDescription = null) },
-                        text = { Text(stringResource(R.string.mark_manually)) },
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                        elevation = FloatingActionButtonDefaults.elevation(),
-                    )
-                    ExtendedFloatingActionButton(
-                        onClick = { onNavigateToAnonymize(current.id, false) },
-                        icon = { Icon(Icons.Filled.AutoAwesome, contentDescription = null) },
-                        text = { Text(stringResource(R.string.suggest_anonymization)) },
-                    )
-                }
+                ExtendedFloatingActionButton(
+                    onClick = { onNavigateToAnonymize(current.id) },
+                    icon = { Icon(Icons.Filled.AutoAwesome, contentDescription = null) },
+                    text = { Text(stringResource(R.string.anonymize_action)) },
+                )
             }
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -242,7 +232,7 @@ fun DocumentViewer(
                         else -> VersionsTab(
                             versions = versions,
                             onOpen = { previewVersion = it },
-                            onShare = { v -> scope.launch { shareText(context, versionFileName(current, v), v.anonymizedText) } },
+                            onShare = { v -> scope.launch { shareText(context, versionFileName(v), v.anonymizedText) } },
                             onDelete = viewModel::deleteVersion,
                         )
                     }
@@ -252,7 +242,6 @@ fun DocumentViewer(
     }
 
     previewVersion?.let { version ->
-        val current = doc
         VersionPreviewDialog(
             version = version,
             onDismiss = { previewVersion = null },
@@ -262,9 +251,9 @@ fun DocumentViewer(
             },
             onExport = {
                 pendingExport = version.anonymizedText
-                exportLauncher.launch(versionFileName(current, version))
+                exportLauncher.launch(versionFileName(version))
             },
-            onShare = { scope.launch { shareText(context, versionFileName(current, version), version.anonymizedText) } },
+            onShare = { scope.launch { shareText(context, versionFileName(version), version.anonymizedText) } },
         )
     }
 }
@@ -451,9 +440,13 @@ internal fun wordCount(text: String): Int =
 private fun suggestTxtName(filename: String): String =
     filename.substringBeforeLast('.').ifBlank { "documento" } + ".txt"
 
-private fun versionFileName(doc: PdfDocument?, version: AnonymizedVersion): String {
-    val base = doc?.originalFilename?.substringBeforeLast('.')?.ifBlank { "documento" } ?: "documento"
-    return "${base}_anonimizado_${version.id}.txt"
+/**
+ * Anonymized exports use a neutral, timestamped name. The original PDF is often named after the
+ * patient, so deriving the export name from it would leak exactly what the redaction removed.
+ */
+private fun versionFileName(version: AnonymizedVersion): String {
+    val stamp = SimpleDateFormat("yyyyMMdd_HHmm", Locale("pt", "BR")).format(Date(version.createdTimestamp))
+    return "anonimizado_$stamp.txt"
 }
 
 private fun formatDateTime(timestamp: Long): String =

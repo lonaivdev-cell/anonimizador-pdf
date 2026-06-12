@@ -16,6 +16,8 @@ class PiiDetectorTest {
     private fun List<PiiDetector.Detection>.term(term: String) =
         firstOrNull { it.term.equals(term, ignoreCase = true) }
 
+    // ---- structured data ----
+
     @Test
     fun detectsEmailAsContact() {
         val d = detect("Contato: joao.silva@exemplo.com").term("joao.silva@exemplo.com")
@@ -48,11 +50,106 @@ class PiiDetectorTest {
     }
 
     @Test
-    fun detectsTriggeredNameWithMediumConfidence() {
+    fun detectsWrittenDate() {
+        val d = detect("Paciente nascida em 12 de maio de 1980, sem comorbidades.")
+            .term("12 de maio de 1980")
+        assertNotNull(d)
+        assertEquals(RedactionCategory.DATE, d!!.category)
+    }
+
+    @Test
+    fun detectsRgNumber() {
+        val d = detect("RG: 12.345.678-9, emitido em SP").term("12.345.678-9")
+        assertNotNull(d)
+        assertEquals(RedactionCategory.DOCUMENT, d!!.category)
+        assertEquals(Confidence.HIGH, d.confidence)
+    }
+
+    @Test
+    fun detectsCrmNumber() {
+        val result = detect("Dr. Carlos Mendes - CRM/SP 123456")
+        val crm = result.term("123456")
+        assertNotNull(crm)
+        assertEquals(RedactionCategory.DOCUMENT, crm!!.category)
+        assertEquals(Confidence.HIGH, crm.confidence)
+        // The physician name is triggered by "Dr." and boosted by the dictionary.
+        val name = result.term("Carlos Mendes")
+        assertNotNull(name)
+        assertEquals(Confidence.HIGH, name!!.confidence)
+    }
+
+    @Test
+    fun detectsProntuarioNumber() {
+        val d = detect("Prontuário nº 456789").term("456789")
+        assertNotNull(d)
+        assertEquals(RedactionCategory.DOCUMENT, d!!.category)
+        assertEquals(Confidence.HIGH, d.confidence)
+    }
+
+    @Test
+    fun detectsCnsNumber() {
+        val d = detect("CNS 700501234567890").term("700501234567890")
+        assertNotNull(d)
+        assertEquals(RedactionCategory.DOCUMENT, d!!.category)
+    }
+
+    @Test
+    fun detectsStreetAddressWithNumber() {
+        val d = detect("Mora na Rua das Flores, 123 desde 2019.")
+        assertNotNull(d.firstOrNull { it.category == RedactionCategory.ADDRESS && it.term.startsWith("Rua das Flores") })
+    }
+
+    @Test
+    fun doesNotFlagStreetMentionWithoutNumber() {
+        val result = detect("a rua estava molhada quando ele chegou")
+        assertTrue(result.none { it.category == RedactionCategory.ADDRESS })
+    }
+
+    // ---- names: triggers, dictionary, ALL CAPS ----
+
+    @Test
+    fun detectsTriggeredDictionaryNameWithHighConfidence() {
         val d = detect("Paciente: João Carlos da Silva").term("João Carlos da Silva")
         assertNotNull(d)
         assertEquals(RedactionCategory.NAME, d!!.category)
+        assertEquals(Confidence.HIGH, d.confidence)
+    }
+
+    @Test
+    fun detectsAllCapsTriggeredName() {
+        val d = detect("PACIENTE: MARIA APARECIDA DOS SANTOS").term("MARIA APARECIDA DOS SANTOS")
+        assertNotNull(d)
+        assertEquals(RedactionCategory.NAME, d!!.category)
+        assertEquals(Confidence.HIGH, d.confidence)
+    }
+
+    @Test
+    fun detectsStandaloneKnownFirstNameMidSentence() {
+        val d = detect("Conversei com Maria sobre o exame.").term("Maria")
+        assertNotNull(d)
+        assertEquals(RedactionCategory.NAME, d!!.category)
         assertEquals(Confidence.MEDIUM, d.confidence)
+    }
+
+    @Test
+    fun skipsAmbiguousNameAtSentenceStart() {
+        // "Clara" doubles as an adjective; capitalised at a sentence start it carries no signal.
+        val result = detect("Clara melhora do quadro clínico.")
+        assertTrue(result.none { it.term.equals("Clara", ignoreCase = true) })
+    }
+
+    @Test
+    fun nameRunsDoNotCrossLineBreaks() {
+        val result = detect("Falei com Maria\nResultado do exame normal")
+        assertNotNull(result.term("Maria"))
+        assertTrue(result.none { it.term.contains("Resultado", ignoreCase = true) })
+    }
+
+    @Test
+    fun nameRunsStopAtSentencePunctuation() {
+        val result = detect("Atendi a Bruna. Depois examinei o joelho.")
+        assertNotNull(result.term("Bruna"))
+        assertTrue(result.none { it.term.contains("Depois") })
     }
 
     @Test
@@ -61,6 +158,13 @@ class PiiDetectorTest {
         assertTrue(result.none { it.term.equals("Pressão Arterial", ignoreCase = true) })
         // The blood-pressure reading must not be misread as a date or phone.
         assertTrue(result.isEmpty())
+    }
+
+    @Test
+    fun ignoresBirthDateLabelAsName() {
+        // "Nascimento" is also a surname; the label must not surface as a person.
+        val result = detect("Data de Nascimento: 12/05/1980")
+        assertTrue(result.none { it.category == RedactionCategory.NAME })
     }
 
     @Test
@@ -78,6 +182,45 @@ class PiiDetectorTest {
         assertTrue(result.none { it.term.contains("CPF") })
     }
 
+    // ---- chat records ----
+
+    @Test
+    fun detectsChatSenderWithTimestamp() {
+        val d = detect("12/05/2024 14:32 - João: Bom dia, doutora").term("João")
+        assertNotNull(d)
+        assertEquals(RedactionCategory.NAME, d!!.category)
+        assertEquals(Confidence.HIGH, d.confidence)
+    }
+
+    @Test
+    fun detectsWhatsAppBracketTimestampSender() {
+        val d = detect("[12/05/24, 14:32:05] Ana Paula: cheguei no laboratório").term("Ana Paula")
+        assertNotNull(d)
+        assertEquals(Confidence.HIGH, d!!.confidence)
+    }
+
+    @Test
+    fun detectsChatSenderWithoutTimestampViaDictionary() {
+        val d = detect("Maria: tomei o remédio hoje cedo").term("Maria")
+        assertNotNull(d)
+        assertEquals(Confidence.HIGH, d!!.confidence)
+    }
+
+    @Test
+    fun ignoresLabAnalyteLineAsSender() {
+        val result = detect("Hemoglobina: 13,5 g/dL")
+        assertTrue(result.none { it.category == RedactionCategory.NAME })
+    }
+
+    @Test
+    fun ignoresSectionLabelLineAsSender() {
+        val result = detect("Diagnóstico Principal: dor torácica atípica")
+        // May surface as a LOW (unchecked) capitalised run, but never as an auto-selected name.
+        assertTrue(result.none { it.category == RedactionCategory.NAME && it.confidence != Confidence.LOW })
+    }
+
+    // ---- general behaviour ----
+
     @Test
     fun emptyTextYieldsNothing() {
         assertTrue(detect("   ").isEmpty())
@@ -88,5 +231,13 @@ class PiiDetectorTest {
         val result = detect("Paciente: Ana Lima, CPF 123.456.789-00")
         assertFalse(result.isEmpty())
         assertEquals(Confidence.HIGH, result.first().confidence)
+    }
+
+    @Test
+    fun deduplicatesCaseInsensitivelyKeepingStrongest() {
+        val result = detect("Paciente: Bruna Costa. bruna costa retornou ao consultório.")
+        val matches = result.filter { it.term.equals("Bruna Costa", ignoreCase = true) }
+        assertEquals(1, matches.size)
+        assertEquals(Confidence.HIGH, matches.first().confidence)
     }
 }

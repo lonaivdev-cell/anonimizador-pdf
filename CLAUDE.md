@@ -6,9 +6,13 @@ Project guidance for Claude Code (and humans) working in this repository.
 
 A **fully-offline** native Android app for anonymizing patient PDFs (clinical chat records and lab
 results) before they are sent to external LLMs for research. It is a personal clinical tool. It
-extracts PDF text on-device, lets an **on-device** LLM (MediaPipe LLM Inference) suggest
-LGPD-sensitive terms — or the user marks them manually — redacts them, and exports an anonymized
-`.txt`. All user-visible text is **Brazilian Portuguese (pt-BR)**.
+extracts PDF text on-device and suggests LGPD-sensitive terms **instantly with a deterministic
+offline detector** (`PiiDetector`: Brazilian name dictionaries, chat-sender patterns,
+CPF/RG/CRM/CNS/phone/e-mail/address/date/prontuário regexes) — an **optional** on-device LLM
+(MediaPipe or llama.cpp) can refine the list. The user confirms (tap-to-redact), terms are replaced
+whole-word by `[ANONIMIZADO]`, and the result exports as `.txt` — optionally re-organized for LLM
+reading via a toggle (`OutputFormatter`; OFF = exact redacted text). All user-visible text is
+**Brazilian Portuguese (pt-BR)**.
 
 ## Security constraints (NON-NEGOTIABLE)
 
@@ -38,9 +42,13 @@ di/          Hilt modules (Database, Repository, UseCase)
 Adaptive UI via `WindowSizeClass` (`calculateWindowSizeClass`): phone = `NavigationBar` (Início /
 Biblioteca / Configurações) + single pane; tablet (Expanded) = `PermanentNavigationDrawer` + two-pane
 (`NavigableListDetailPaneScaffold`). The viewer (`DocumentViewer`) is reused both as the Library
-detail pane and as a standalone route opened from Home. Anonymization supports tap-to-redact
-(`RedactableText`) plus LLM suggestions grouped by `RedactionCategory`; saved `AnonymizedVersion`s are
-surfaced in the viewer's "Versões" tab.
+detail pane and as a standalone route opened from Home. The anonymize screen is a single flow:
+offline `PiiDetector` suggestions (grouped by `RedactionCategory`, pre-selected by `Confidence` —
+LOW starts unchecked), tap-to-redact (`RedactableText`), a manual term field, and — only when a
+model is loaded — optional LLM review/deep-scan. The preview has a persisted toggle that swaps
+between the raw redacted text and the `OutputFormatter` layout. Saved `AnonymizedVersion`s surface
+in the viewer's "Versões" tab; anonymized exports always use neutral timestamped filenames (the
+original PDF name may identify the patient).
 
 ## Commands
 

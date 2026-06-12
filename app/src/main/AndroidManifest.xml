@@ -4,10 +4,9 @@
 
     <!--
       File access uses the Storage Access Framework (SAF), which needs no storage permissions.
-      These are declared per spec for legacy/media access on older SDKs only.
+      These are declared per spec for legacy access on older SDKs only.
       THERE IS NO android.permission.INTERNET: this app is fully offline by design.
     -->
-    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <uses-permission
         android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />

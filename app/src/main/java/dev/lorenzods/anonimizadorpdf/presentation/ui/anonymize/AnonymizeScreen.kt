@@ -29,7 +29,6 @@ import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.FilterAlt
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Stop
@@ -44,12 +43,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -77,6 +74,9 @@ import dev.lorenzods.anonimizadorpdf.presentation.ui.common.InfoBanner
 import dev.lorenzods.anonimizadorpdf.presentation.ui.viewer.highlightPlaceholders
 import dev.lorenzods.anonimizadorpdf.presentation.ui.viewer.shareText
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @Composable
 fun AnonymizeScreen(
@@ -104,18 +104,22 @@ fun AnonymizeScreen(
         }
     }
 
+    val exportedMsg = stringResource(R.string.exported)
+    val exportFailedMsg = stringResource(R.string.export_failed)
     val exportLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("text/plain"),
     ) { uri ->
-        val text = uiState.previewText
+        val text = uiState.previewDisplay
         if (uri != null && text != null) {
-            runCatching {
-                context.contentResolver.openOutputStream(uri)?.use { it.write(text.toByteArray()) }
-            }
+            // "wt" truncates an existing document picked through SAF; plain "w" may leave a stale tail.
+            val ok = runCatching {
+                context.contentResolver.openOutputStream(uri, "wt")?.use { it.write(text.toByteArray()) }
+            }.isSuccess
+            scope.launch { snackbarHostState.showSnackbar(if (ok) exportedMsg else exportFailedMsg) }
         }
     }
 
-    val preview = uiState.previewText
+    val preview = uiState.previewDisplay
 
     Scaffold(
         topBar = {
@@ -144,6 +148,9 @@ fun AnonymizeScreen(
                 PreviewContent(
                     previewText = preview,
                     selectedCount = uiState.selectedCount,
+                    formatEnabled = uiState.formatEnabled,
+                    saved = uiState.saved,
+                    onFormatChange = viewModel::setFormatEnabled,
                     onEdit = viewModel::dismissPreview,
                     onSave = viewModel::save,
                     onExport = { exportLauncher.launch(exportName()) },
@@ -152,7 +159,6 @@ fun AnonymizeScreen(
             } else {
                 EditContent(
                     uiState = uiState,
-                    onSetMode = viewModel::setMode,
                     onDetect = viewModel::runDetection,
                     onReview = viewModel::reviewWithLlm,
                     onDeepScan = viewModel::deepScan,
@@ -193,7 +199,6 @@ private fun ApplyBar(count: Int, onApply: () -> Unit) {
 @Composable
 private fun EditContent(
     uiState: AnonymizeUiState,
-    onSetMode: (AnonymizeMode) -> Unit,
     onDetect: () -> Unit,
     onReview: () -> Unit,
     onDeepScan: () -> Unit,
@@ -212,25 +217,13 @@ private fun EditContent(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-            SegmentedButton(
-                selected = uiState.mode == AnonymizeMode.AUTO,
-                onClick = { onSetMode(AnonymizeMode.AUTO) },
-                shape = SegmentedButtonDefaults.itemShape(0, 2),
-            ) { Text(stringResource(R.string.mode_a_title)) }
-            SegmentedButton(
-                selected = uiState.mode == AnonymizeMode.MANUAL,
-                onClick = { onSetMode(AnonymizeMode.MANUAL) },
-                shape = SegmentedButtonDefaults.itemShape(1, 2),
-            ) { Text(stringResource(R.string.mode_b_title)) }
-        }
-
-        when (uiState.mode) {
-            AnonymizeMode.AUTO -> ModeAuto(uiState, onDetect, onReview, onDeepScan, onStop, onNavigateToSettings)
-            AnonymizeMode.MANUAL -> ModeManual(onAddManual)
-        }
+        SuggestionsSummary(uiState, onDetect)
 
         ChipsSection(uiState, onToggleChip, onSelectAll, onClearAll)
+
+        ManualAddRow(onAddManual)
+
+        AiSection(uiState, onReview, onDeepScan, onStop, onNavigateToSettings)
 
         DocumentSection(uiState, onToggleWord)
 
@@ -238,65 +231,108 @@ private fun EditContent(
     }
 }
 
+/** Offline suggestions are the primary path: instant, no model needed. */
 @Composable
-private fun ModeAuto(
-    uiState: AnonymizeUiState,
-    onDetect: () -> Unit,
-    onReview: () -> Unit,
-    onDeepScan: () -> Unit,
-    onStop: () -> Unit,
-    onNavigateToSettings: () -> Unit,
-) {
-    // Stage 1 summary — always available, fully offline.
+private fun SuggestionsSummary(uiState: AnonymizeUiState, onDetect: () -> Unit) {
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
         shape = RoundedCornerShape(16.dp),
         modifier = Modifier.fillMaxWidth(),
     ) {
         Row(
-            modifier = Modifier.padding(14.dp),
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Icon(Icons.Filled.Shield, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
             Text(
-                text = if (uiState.chips.isEmpty()) {
-                    stringResource(R.string.auto_summary_empty)
-                } else {
-                    stringResource(R.string.auto_summary, uiState.chips.size)
+                text = when {
+                    uiState.detecting -> stringResource(R.string.detecting)
+                    uiState.chips.isEmpty() -> stringResource(R.string.auto_summary_empty)
+                    else -> stringResource(R.string.auto_summary, uiState.chips.size)
                 },
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.weight(1f),
             )
+            if (uiState.detecting) {
+                CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+            } else {
+                IconButton(onClick = onDetect, enabled = !uiState.busy) {
+                    Icon(
+                        Icons.Filled.Refresh,
+                        contentDescription = stringResource(R.string.detect_again),
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                }
+            }
         }
     }
+}
 
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        OutlinedButton(onClick = onDetect, enabled = !uiState.busy) {
-            Icon(Icons.Filled.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
+@Composable
+private fun ManualAddRow(onAddManual: (String) -> Unit) {
+    var term by remember { mutableStateOf("") }
+
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        OutlinedTextField(
+            value = term,
+            onValueChange = { term = it },
+            label = { Text(stringResource(R.string.term_to_remove)) },
+            singleLine = true,
+            shape = RoundedCornerShape(14.dp),
+            modifier = Modifier.weight(1f),
+        )
+        Button(
+            onClick = {
+                onAddManual(term)
+                term = ""
+            },
+            enabled = term.isNotBlank(),
+        ) {
+            Icon(Icons.Filled.Add, contentDescription = null)
             Spacer(Modifier.width(8.dp))
-            Text(stringResource(R.string.detect_again))
+            Text(stringResource(R.string.add))
         }
-        FilledTonalButton(onClick = onReview, enabled = uiState.modelAvailable && !uiState.busy && uiState.chips.isNotEmpty()) {
+    }
+}
+
+/** Optional LLM assistance — shown as a compact extra, never required for the main flow. */
+@Composable
+private fun AiSection(
+    uiState: AnonymizeUiState,
+    onReview: () -> Unit,
+    onDeepScan: () -> Unit,
+    onStop: () -> Unit,
+    onNavigateToSettings: () -> Unit,
+) {
+    if (!uiState.modelAvailable) {
+        TextButton(onClick = onNavigateToSettings) {
+            Icon(Icons.Filled.AutoAwesome, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(8.dp))
+            Text(stringResource(R.string.ai_optional_hint))
+        }
+        return
+    }
+
+    Text(
+        text = stringResource(R.string.ai_section_title),
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        FilledTonalButton(onClick = onReview, enabled = !uiState.busy && uiState.chips.isNotEmpty()) {
             Icon(Icons.Filled.FilterAlt, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(8.dp))
             Text(stringResource(R.string.review_with_ai))
         }
-        FilledTonalButton(onClick = onDeepScan, enabled = uiState.modelAvailable && !uiState.busy) {
+        FilledTonalButton(onClick = onDeepScan, enabled = !uiState.busy) {
             Icon(Icons.Filled.AutoAwesome, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(8.dp))
             Text(stringResource(R.string.deep_scan))
         }
-    }
-
-    if (!uiState.modelAvailable) {
-        InfoBanner(
-            icon = Icons.Filled.Settings,
-            text = stringResource(R.string.ai_needs_model),
-            container = MaterialTheme.colorScheme.tertiaryContainer,
-            content = MaterialTheme.colorScheme.onTertiaryContainer,
-        )
-        TextButton(onClick = onNavigateToSettings) { Text(stringResource(R.string.go_to_settings)) }
     }
 
     if (uiState.reviewing) {
@@ -358,36 +394,6 @@ private fun BusyCard(label: String, onStop: () -> Unit) {
 }
 
 @Composable
-private fun ModeManual(onAddManual: (String) -> Unit) {
-    var term by remember { mutableStateOf("") }
-
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        OutlinedTextField(
-            value = term,
-            onValueChange = { term = it },
-            label = { Text(stringResource(R.string.term_to_remove)) },
-            singleLine = true,
-            shape = RoundedCornerShape(14.dp),
-            modifier = Modifier.weight(1f),
-        )
-        Button(
-            onClick = {
-                onAddManual(term)
-                term = ""
-            },
-            enabled = term.isNotBlank(),
-        ) {
-            Icon(Icons.Filled.Add, contentDescription = null)
-            Spacer(Modifier.width(8.dp))
-            Text(stringResource(R.string.add))
-        }
-    }
-}
-
-@Composable
 private fun ChipsSection(
     uiState: AnonymizeUiState,
     onToggleChip: (String) -> Unit,
@@ -411,7 +417,7 @@ private fun ChipsSection(
 
     if (uiState.chips.isEmpty()) {
         Text(
-            text = stringResource(if (uiState.mode == AnonymizeMode.AUTO) R.string.no_suggestions else R.string.no_terms),
+            text = stringResource(R.string.no_suggestions),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -484,6 +490,9 @@ private fun DocumentSection(uiState: AnonymizeUiState, onToggleWord: (String) ->
 private fun PreviewContent(
     previewText: String,
     selectedCount: Int,
+    formatEnabled: Boolean,
+    saved: Boolean,
+    onFormatChange: (Boolean) -> Unit,
     onEdit: () -> Unit,
     onSave: () -> Unit,
     onExport: () -> Unit,
@@ -515,6 +524,30 @@ private fun PreviewContent(
             )
         }
 
+        // The format toggle: ON shows/exports the LLM-organized layout, OFF always reverts to the
+        // exact redacted text.
+        Surface(
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            shape = RoundedCornerShape(14.dp),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(stringResource(R.string.format_toggle), style = MaterialTheme.typography.titleSmall)
+                    Text(
+                        text = stringResource(R.string.format_toggle_desc),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(checked = formatEnabled, onCheckedChange = onFormatChange)
+            }
+        }
+
         Surface(
             color = MaterialTheme.colorScheme.surfaceContainerLow,
             shape = RoundedCornerShape(16.dp),
@@ -544,7 +577,9 @@ private fun PreviewContent(
                 Spacer(Modifier.width(8.dp))
                 Text(stringResource(R.string.share))
             }
-            Button(onClick = onSave) { Text(stringResource(R.string.save)) }
+            Button(onClick = onSave, enabled = !saved) {
+                Text(stringResource(if (saved) R.string.saved_done else R.string.save))
+            }
         }
     }
 }
@@ -583,4 +618,8 @@ private fun countOccurrences(text: String, needle: String): Int {
     return count
 }
 
-private fun exportName(): String = "anonimizado_${System.currentTimeMillis()}.txt"
+/** Neutral, timestamped name — never derived from the original filename, which may identify the patient. */
+private fun exportName(): String {
+    val stamp = SimpleDateFormat("yyyyMMdd_HHmm", Locale("pt", "BR")).format(Date())
+    return "anonimizado_$stamp.txt"
+}

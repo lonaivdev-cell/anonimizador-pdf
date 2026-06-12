@@ -16,6 +16,25 @@ class RedactionTest {
     }
 
     @Test
+    fun doesNotReplaceInsideOtherWords() {
+        // "Ana" must never mangle "Anamnese" — whole-word matching only.
+        val result = redact("Anamnese: Ana relatou dor. Reanálise adiada.", listOf("Ana"))
+        assertEquals("Anamnese: $placeholder relatou dor. Reanálise adiada.", result)
+    }
+
+    @Test
+    fun replacesWholeWordAtTextBoundaries() {
+        val result = redact("Maria", listOf("Maria"))
+        assertEquals(placeholder, result)
+    }
+
+    @Test
+    fun replacesMultiWordTermsSurroundedByPunctuation() {
+        val result = redact("Atendi (Maria Souza) ontem.", listOf("Maria Souza"))
+        assertEquals("Atendi ($placeholder) ontem.", result)
+    }
+
+    @Test
     fun appliesLongestTermsFirstToAvoidPartialReplacement() {
         // If "Ana" were applied before "Ana Maria", the longer term would never match.
         val result = redact("Ana Maria e Ana", listOf("Ana", "Ana Maria"))
@@ -29,6 +48,12 @@ class RedactionTest {
             listOf("maria@x.com", "11999998888"),
         )
         assertEquals("Contato: $placeholder, telefone $placeholder.", result)
+    }
+
+    @Test
+    fun replacesCpfWithSeparators() {
+        val result = redact("CPF do paciente: 123.456.789-00.", listOf("123.456.789-00"))
+        assertEquals("CPF do paciente: $placeholder.", result)
     }
 
     @Test
@@ -47,5 +72,11 @@ class RedactionTest {
     fun leavesTextUnchangedWhenTermAbsent() {
         val text = "Resultado laboratorial normal."
         assertEquals(text, redact(text, listOf("Inexistente")))
+    }
+
+    @Test
+    fun matchesAccentedTextCaseInsensitively() {
+        val result = redact("PACIENTE: JOSÉ ANTÔNIO.", listOf("José Antônio"))
+        assertEquals("PACIENTE: $placeholder.", result)
     }
 }

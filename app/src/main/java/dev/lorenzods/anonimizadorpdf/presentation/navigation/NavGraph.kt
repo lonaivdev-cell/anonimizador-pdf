@@ -40,8 +40,8 @@ fun AppNavHost(
                 isExpanded = isExpanded,
                 sharedPdfUri = sharedPdfUri,
                 onSharedConsumed = onSharedConsumed,
-                onNavigateToAnonymize = { docId, manual ->
-                    navController.navigate(Screen.Anonymize.create(docId, manual))
+                onNavigateToAnonymize = { docId ->
+                    navController.navigate(Screen.Anonymize.create(docId))
                 },
             )
         }
@@ -56,8 +56,8 @@ fun AppNavHost(
         ) {
             ViewerScreen(
                 onBack = { navController.popBackStack() },
-                onNavigateToAnonymize = { docId, manual ->
-                    navController.navigate(Screen.Anonymize.create(docId, manual))
+                onNavigateToAnonymize = { docId ->
+                    navController.navigate(Screen.Anonymize.create(docId))
                 },
             )
         }
@@ -66,7 +66,6 @@ fun AppNavHost(
             route = Screen.Anonymize.route,
             arguments = listOf(
                 navArgument(Screen.Anonymize.ARG_DOC_ID) { type = NavType.LongType },
-                navArgument(Screen.Anonymize.ARG_MANUAL) { type = NavType.BoolType },
             ),
         ) {
             AnonymizeScreen(

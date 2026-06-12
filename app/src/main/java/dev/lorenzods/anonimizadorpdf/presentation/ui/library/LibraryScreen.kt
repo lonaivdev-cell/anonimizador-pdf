@@ -85,7 +85,7 @@ fun LibraryScreen(
     isExpanded: Boolean,
     sharedPdfUri: Uri?,
     onSharedConsumed: () -> Unit,
-    onNavigateToAnonymize: (Long, Boolean) -> Unit,
+    onNavigateToAnonymize: (Long) -> Unit,
     viewModel: LibraryViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()

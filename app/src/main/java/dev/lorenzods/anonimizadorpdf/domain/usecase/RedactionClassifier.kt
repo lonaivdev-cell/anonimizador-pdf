@@ -37,6 +37,8 @@ object RedactionClassifier {
             addressWords.any { lower.contains(it) } -> RedactionCategory.ADDRESS
             orgWords.any { lower.contains(it) } -> RedactionCategory.ORGANIZATION
             looksLikePersonName(term) -> RedactionCategory.NAME
+            // Single words tapped/typed by the user: a known Brazilian name buckets under "Nomes".
+            BrazilianNames.isKnownNameWord(lower) -> RedactionCategory.NAME
             term.count { it.isDigit() } >= term.length / 2 && term.any { it.isDigit() } ->
                 RedactionCategory.DOCUMENT
             else -> RedactionCategory.OTHER

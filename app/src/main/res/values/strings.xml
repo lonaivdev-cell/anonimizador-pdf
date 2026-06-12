@@ -75,6 +75,10 @@
         <item quantity="one">%d termo</item>
         <item quantity="other">%d termos</item>
     </plurals>
+    <plurals name="learned_terms_count">
+        <item quantity="one">%d termo aprendido</item>
+        <item quantity="other">%d termos aprendidos</item>
+    </plurals>
     <plurals name="version_count">
         <item quantity="one">%d versão anonimizada</item>
         <item quantity="other">%d versões anonimizadas</item>
@@ -179,6 +183,10 @@
     <string name="settings_section_export">Pasta de exportação</string>
     <string name="pick_folder">Selecionar pasta</string>
     <string name="no_folder_selected">Nenhuma pasta selecionada</string>
+    <string name="settings_section_learning">Aprendizado offline</string>
+    <string name="learned_terms_desc">O detector offline memoriza os nomes e instituições que você confirma ao anonimizar e passa a sugeri-los automaticamente em novos documentos. Tudo fica apenas no aparelho.</string>
+    <string name="learned_terms_clear">Apagar termos aprendidos</string>
+    <string name="learned_terms_cleared">Termos aprendidos apagados</string>
     <string name="settings_section_data">Dados</string>
     <string name="delete_all_data">Apagar todos os dados</string>
     <string name="delete_all_data_title">Apagar todos os dados?</string>

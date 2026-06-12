@@ -6,7 +6,7 @@ import dev.lorenzods.anonimizadorpdf.domain.model.RedactionCategory
 /**
  * Stage 1 of the anonymization pipeline: a fully offline, deterministic detector that scans clinical
  * text for likely LGPD-sensitive data. It is the **primary** suggestion engine — instant, on-device,
- * no model required. Structured data (CPF, RG, CRM, CNS, e-mail, phone, CEP, datas, endereços,
+ * no model required. Structured data (CPF, RG, CRM, CRBM, CNS, e-mail, phone, CEP, datas, endereços,
  * prontuário) is matched precisely; person names combine four signals:
  *
  *  1. trigger words ("Paciente:", "Dr.") preceding a capitalised run;
@@ -46,6 +46,13 @@ object PiiDetector {
     // label itself stays readable in the output.
     private val rg = Regex("""(?i)\bRG\b[\s:nº°.]*((?:\d{1,2}\.?)?\d{3}\.?\d{3}-?[\dXx]?)""")
     private val crm = Regex("""(?i)\bCRM\b[\s/.:-]*(?:[A-Z]{2}\b)?[\s.:-]*(\d{3,7})""")
+    // Conselho Regional de Biomedicina — biomedicine workers sign reports alongside (or instead of)
+    // the physician's CRM. The optional region segment may be a UF ("CRBM/SP"), a region number
+    // ("CRBM-6"), or a spelled-out region ("CRBM 1ª Região"); a separator is required after it so a
+    // bare "CRBM 12345" isn't split into a phantom region + truncated number.
+    private val crbm = Regex(
+        """(?i)\bCRBM\b[\s/.:-]*(?:(?:[A-Z]{2}|\d{1,2}[ªº]?(?:\s*regi[ãa]o)?)[\s/.:-]+)?(\d{3,7})""",
+    )
     private val recordNumber = Regex(
         """(?i)\b(?:prontu[áa]rio|matr[íi]cula|protocolo|registro|atendimento|ficha|amostra|""" +
             """pedido|guia)\b\s*(?:n[ºo°.]*\s*)?[:#]?\s*(\d[\d./-]{2,})""",
@@ -78,7 +85,7 @@ object PiiDetector {
 
     // Short field labels that must never be swallowed into a name run ("Maria Souza CPF 111…").
     private val labelWords = setOf(
-        "cpf", "rg", "cns", "crm", "cep", "sus", "cid", "tel", "cel", "fone", "uf", "dn", "rn",
+        "cpf", "rg", "cns", "crm", "crbm", "cep", "sus", "cid", "tel", "cel", "fone", "uf", "dn", "rn",
         "id", "os", "nº", "no", "n°", "num",
     )
 
@@ -121,7 +128,14 @@ object PiiDetector {
         """^([\p{Lu}][\p{L}'’.-]{1,29}(?:\s+[\p{L}'’.-]{1,29}){0,4}):\s*(.*)$""",
     )
 
-    fun detect(text: String): List<Detection> {
+    /**
+     * @param learnedTerms terms the user confirmed on previous documents (see
+     * [dev.lorenzods.anonimizadorpdf.data.preferences.AppPreferences.learnedTerms]). Each is matched
+     * whole-word, case-/accent-insensitively — the same rule the redactor uses — and surfaced as a
+     * HIGH-confidence detection, so a name confirmed once is suggested automatically wherever it
+     * recurs. This is how the offline detector "learns" without any model or network.
+     */
+    fun detect(text: String, learnedTerms: Collection<String> = emptyList()): List<Detection> {
         if (text.isBlank()) return emptyList()
         val found = ArrayList<Detection>()
 
@@ -137,6 +151,7 @@ object PiiDetector {
         addPattern(cpf, RedactionCategory.DOCUMENT, Confidence.HIGH)
         addPattern(rg, RedactionCategory.DOCUMENT, Confidence.HIGH, group = 1)
         addPattern(crm, RedactionCategory.DOCUMENT, Confidence.HIGH, group = 1)
+        addPattern(crbm, RedactionCategory.DOCUMENT, Confidence.HIGH, group = 1)
         addPattern(recordNumber, RedactionCategory.DOCUMENT, Confidence.HIGH, group = 1)
         addPattern(cns, RedactionCategory.DOCUMENT, Confidence.MEDIUM)
         addPattern(cep, RedactionCategory.ADDRESS, Confidence.MEDIUM)
@@ -153,12 +168,35 @@ object PiiDetector {
             found.addAll(detectNames(line))
         }
 
+        // User-confirmed terms from earlier documents — the "learning" pass.
+        addLearnedTerms(text, learnedTerms, found)
+
         // Deduplicate case-insensitively, keeping the strongest confidence per term.
         return found
             .filter { it.term.isNotBlank() }
             .groupBy { it.term.lowercase() }
             .map { (_, group) -> group.minByOrNull { it.confidence.ordinal }!! }
             .sortedWith(compareBy({ it.confidence.ordinal }, { it.term.lowercase() }))
+    }
+
+    /**
+     * Flags every learned term that appears in the text. Matching mirrors [ApplyRedactionsUseCase]:
+     * case-insensitive, Unicode case-folded, and whole-word (a learned "Ana" never hits "Anamnese"),
+     * so a confirmed term redacts reliably regardless of the casing in the new document. The stored
+     * category is inferred with [RedactionClassifier]; an unclassifiable term defaults to NAME, since
+     * the learned set only ever holds names/instituições.
+     */
+    private fun addLearnedTerms(text: String, terms: Collection<String>, found: MutableList<Detection>) {
+        for (raw in terms) {
+            val term = raw.trim()
+            if (term.isBlank()) continue
+            val pattern = Regex("(?iu)(?<![\\p{L}\\p{N}])${Regex.escape(term)}(?![\\p{L}\\p{N}])")
+            if (pattern.containsMatchIn(text)) {
+                val category = RedactionClassifier.classify(term)
+                    .takeUnless { it == RedactionCategory.OTHER } ?: RedactionCategory.NAME
+                found.add(Detection(term, category, Confidence.HIGH))
+            }
+        }
     }
 
     /**

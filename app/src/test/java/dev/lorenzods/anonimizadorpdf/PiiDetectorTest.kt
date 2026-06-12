@@ -13,6 +13,9 @@ class PiiDetectorTest {
 
     private fun detect(text: String) = PiiDetector.detect(text)
 
+    private fun detect(text: String, learnedTerms: List<String>) =
+        PiiDetector.detect(text, learnedTerms)
+
     private fun List<PiiDetector.Detection>.term(term: String) =
         firstOrNull { it.term.equals(term, ignoreCase = true) }
 
@@ -76,6 +79,25 @@ class PiiDetectorTest {
         val name = result.term("Carlos Mendes")
         assertNotNull(name)
         assertEquals(Confidence.HIGH, name!!.confidence)
+    }
+
+    @Test
+    fun detectsCrbmNumber() {
+        // Biomedicine professionals sign reports with a CRBM registration, like a physician's CRM.
+        val result = detect("Responsável técnico: Ana Biomédica - CRBM/SP 12345")
+        val crbm = result.term("12345")
+        assertNotNull(crbm)
+        assertEquals(RedactionCategory.DOCUMENT, crbm!!.category)
+        assertEquals(Confidence.HIGH, crbm.confidence)
+    }
+
+    @Test
+    fun detectsCrbmNumberWithRegionAndBareLabel() {
+        // Region number ("CRBM-6") and a spelled-out region must not swallow the registration, and a
+        // bare "CRBM 98765" with no region must capture the full number rather than a truncation.
+        assertEquals("123456", detect("CRBM-6 123456").term("123456")?.term)
+        assertEquals("445566", detect("CRBM 1ª Região 445566").term("445566")?.term)
+        assertEquals("98765", detect("CRBM 98765").term("98765")?.term)
     }
 
     @Test
@@ -217,6 +239,40 @@ class PiiDetectorTest {
         val result = detect("Diagnóstico Principal: dor torácica atípica")
         // May surface as a LOW (unchecked) capitalised run, but never as an auto-selected name.
         assertTrue(result.none { it.category == RedactionCategory.NAME && it.confidence != Confidence.LOW })
+    }
+
+    // ---- learned terms (offline learning) ----
+
+    @Test
+    fun detectsLearnedTermAsHighConfidence() {
+        // A name confirmed on a previous document is suggested automatically here, even though no
+        // trigger word or chat prefix accompanies it.
+        val d = detect("Encaminhado por solicitação externa para Valdomiro avaliar o caso.", listOf("Valdomiro"))
+            .term("Valdomiro")
+        assertNotNull(d)
+        assertEquals(RedactionCategory.NAME, d!!.category)
+        assertEquals(Confidence.HIGH, d.confidence)
+    }
+
+    @Test
+    fun learnedTermMatchesRegardlessOfCase() {
+        val d = detect("RELATÓRIO ASSINADO POR VALDOMIRO PEREIRA.", listOf("Valdomiro Pereira"))
+            .term("Valdomiro Pereira")
+        assertNotNull(d)
+        assertEquals(Confidence.HIGH, d!!.confidence)
+    }
+
+    @Test
+    fun learnedTermDoesNotMatchInsideLongerWord() {
+        // Whole-word only: a learned "Ana" must not redact "Anamnese".
+        val result = detect("Anamnese completa sem alterações.", listOf("Ana"))
+        assertTrue(result.none { it.term.equals("Ana", ignoreCase = true) })
+    }
+
+    @Test
+    fun absentLearnedTermIsNotSuggested() {
+        val result = detect("Hemograma dentro dos parâmetros normais.", listOf("Valdomiro"))
+        assertTrue(result.none { it.term.equals("Valdomiro", ignoreCase = true) })
     }
 
     // ---- general behaviour ----

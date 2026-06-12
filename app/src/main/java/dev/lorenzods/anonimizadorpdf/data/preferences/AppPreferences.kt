@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dev.lorenzods.anonimizadorpdf.domain.model.ThemeMode
@@ -26,6 +27,7 @@ class AppPreferences @Inject constructor(
         val THEME_MODE = stringPreferencesKey("theme_mode")
         val DYNAMIC_COLOR = booleanPreferencesKey("dynamic_color")
         val FORMAT_OUTPUT = booleanPreferencesKey("format_output")
+        val LEARNED_TERMS = stringSetPreferencesKey("learned_terms")
     }
 
     val modelPath: Flow<String?> = context.dataStore.data.map { it[Keys.MODEL_PATH] }
@@ -52,6 +54,15 @@ class AppPreferences @Inject constructor(
     val formatOutput: Flow<Boolean> =
         context.dataStore.data.map { it[Keys.FORMAT_OUTPUT] ?: false }
 
+    /**
+     * Terms (names/instituições) the user has confirmed and redacted on past documents. The offline
+     * [dev.lorenzods.anonimizadorpdf.domain.usecase.PiiDetector] folds these into its scan so the
+     * app "learns" recurring people as it is used. Stored only in app-internal DataStore — same
+     * offline, no-network guarantee as the rest of the app; never logged.
+     */
+    val learnedTerms: Flow<Set<String>> =
+        context.dataStore.data.map { it[Keys.LEARNED_TERMS] ?: emptySet() }
+
     suspend fun setModelPath(path: String) =
         context.dataStore.edit { it[Keys.MODEL_PATH] = path }
 
@@ -72,6 +83,24 @@ class AppPreferences @Inject constructor(
 
     suspend fun setFormatOutput(enabled: Boolean) =
         context.dataStore.edit { it[Keys.FORMAT_OUTPUT] = enabled }
+
+    /** Merges confirmed terms into the learned set, de-duplicating case-insensitively. */
+    suspend fun addLearnedTerms(terms: Collection<String>) {
+        val additions = terms.map { it.trim() }.filter { it.isNotEmpty() }
+        if (additions.isEmpty()) return
+        context.dataStore.edit { prefs ->
+            val existing = prefs[Keys.LEARNED_TERMS] ?: emptySet()
+            val seen = existing.map { it.lowercase() }.toMutableSet()
+            val merged = existing.toMutableSet()
+            for (term in additions) {
+                if (seen.add(term.lowercase())) merged.add(term)
+            }
+            prefs[Keys.LEARNED_TERMS] = merged
+        }
+    }
+
+    suspend fun clearLearnedTerms() =
+        context.dataStore.edit { it.remove(Keys.LEARNED_TERMS) }
 
     companion object {
         // Tuned for small on-device models: short bullet rules instead of a run-on paragraph, plus

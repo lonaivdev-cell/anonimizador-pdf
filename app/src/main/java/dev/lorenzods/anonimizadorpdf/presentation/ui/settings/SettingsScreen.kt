@@ -52,6 +52,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -73,6 +74,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
     val copying by viewModel.copying.collectAsStateWithLifecycle()
     val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
     val dynamicColor by viewModel.dynamicColor.collectAsStateWithLifecycle()
+    val learnedTermsCount by viewModel.learnedTermsCount.collectAsStateWithLifecycle()
 
     var showDeleteDialog by remember { mutableStateOf(false) }
     var promptDraft by rememberSaveable { mutableStateOf<String?>(null) }
@@ -208,6 +210,30 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                     Icon(Icons.Filled.Folder, contentDescription = null)
                     Spacer(Modifier.width(8.dp))
                     Text(stringResource(R.string.pick_folder))
+                }
+            }
+
+            // Learned terms (offline learning)
+            SettingsCard(stringResource(R.string.settings_section_learning)) {
+                Text(
+                    stringResource(R.string.learned_terms_desc),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.size(8.dp))
+                Text(
+                    text = pluralStringResource(
+                        R.plurals.learned_terms_count,
+                        learnedTermsCount,
+                        learnedTermsCount,
+                    ),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                if (learnedTermsCount > 0) {
+                    Spacer(Modifier.size(8.dp))
+                    OutlinedButton(onClick = viewModel::clearLearnedTerms) {
+                        Text(stringResource(R.string.learned_terms_clear))
+                    }
                 }
             }
 

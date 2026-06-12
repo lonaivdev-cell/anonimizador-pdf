@@ -232,6 +232,10 @@ fun DocumentViewer(
                         else -> VersionsTab(
                             versions = versions,
                             onOpen = { previewVersion = it },
+                            onCopy = { v ->
+                                clipboard.setText(AnnotatedString(v.anonymizedText))
+                                scope.launch { snackbarHostState.showSnackbar(copiedMsg) }
+                            },
                             onShare = { v -> scope.launch { shareText(context, versionFileName(v), v.anonymizedText) } },
                             onDelete = viewModel::deleteVersion,
                         )
@@ -286,6 +290,7 @@ private fun OriginalTab(doc: PdfDocument) {
 private fun VersionsTab(
     versions: List<AnonymizedVersion>,
     onOpen: (AnonymizedVersion) -> Unit,
+    onCopy: (AnonymizedVersion) -> Unit,
     onShare: (AnonymizedVersion) -> Unit,
     onDelete: (AnonymizedVersion) -> Unit,
 ) {
@@ -306,7 +311,13 @@ private fun VersionsTab(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         versions.forEach { version ->
-            VersionCard(version, onOpen = { onOpen(version) }, onShare = { onShare(version) }, onDelete = { onDelete(version) })
+            VersionCard(
+                version,
+                onOpen = { onOpen(version) },
+                onCopy = { onCopy(version) },
+                onShare = { onShare(version) },
+                onDelete = { onDelete(version) },
+            )
         }
         Spacer(Modifier.size(8.dp))
     }
@@ -316,6 +327,7 @@ private fun VersionsTab(
 private fun VersionCard(
     version: AnonymizedVersion,
     onOpen: () -> Unit,
+    onCopy: () -> Unit,
     onShare: () -> Unit,
     onDelete: () -> Unit,
 ) {
@@ -352,6 +364,7 @@ private fun VersionCard(
             )
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 TextButton(onClick = onOpen) { Text(stringResource(R.string.version_open)) }
+                TextButton(onClick = onCopy) { Text(stringResource(R.string.copy)) }
                 TextButton(onClick = onShare) { Text(stringResource(R.string.version_share)) }
                 Spacer(Modifier.weight(1f))
                 IconButton(onClick = onDelete) {

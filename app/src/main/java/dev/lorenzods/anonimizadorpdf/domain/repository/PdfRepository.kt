@@ -4,6 +4,7 @@ import android.net.Uri
 import dev.lorenzods.anonimizadorpdf.domain.model.AnonymizedVersion
 import dev.lorenzods.anonimizadorpdf.domain.model.DocumentStatus
 import dev.lorenzods.anonimizadorpdf.domain.model.ExtractionProgress
+import dev.lorenzods.anonimizadorpdf.domain.model.Folder
 import dev.lorenzods.anonimizadorpdf.domain.model.PdfDocument
 import kotlinx.coroutines.flow.Flow
 
@@ -21,6 +22,25 @@ interface PdfRepository {
     suspend fun updateStatus(documentId: Long, status: DocumentStatus)
     suspend fun deleteDocument(document: PdfDocument)
     suspend fun deleteAll()
+
+    // --- Organization ---
+
+    fun observeFolders(): Flow<List<Folder>>
+    suspend fun createFolder(name: String): Long
+    suspend fun renameFolder(folderId: Long, name: String)
+    /** Deletes a folder; its documents are un-filed (moved back to the root), never deleted. */
+    suspend fun deleteFolder(folderId: Long)
+
+    /** Sets a custom display name. Blank/null clears it, reverting to the original filename. */
+    suspend fun renameDocument(documentId: Long, name: String?)
+    suspend fun moveDocuments(documentIds: List<Long>, folderId: Long?)
+    suspend fun setFavorite(documentId: Long, favorite: Boolean)
+
+    /**
+     * Merges the given documents — in the order supplied — into a single new PDF, copies it into
+     * app-internal storage as a fresh RAW document, and returns its id. Fully offline (pdfbox).
+     */
+    suspend fun combinePdfs(documentIds: List<Long>, outputName: String): Long
 
     suspend fun saveAnonymizedVersion(version: AnonymizedVersion): Long
     suspend fun deleteAnonymizedVersion(version: AnonymizedVersion)

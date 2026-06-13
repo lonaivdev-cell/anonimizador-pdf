@@ -151,7 +151,7 @@ fun DocumentViewer(
                 title = {
                     Column {
                         Text(
-                            text = current?.originalFilename ?: stringResource(R.string.viewer_title),
+                            text = current?.displayName ?: stringResource(R.string.viewer_title),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
@@ -184,7 +184,7 @@ fun DocumentViewer(
                         }) { Icon(Icons.Filled.ContentCopy, contentDescription = stringResource(R.string.copy)) }
                         IconButton(onClick = {
                             pendingExport = current2.extractedText
-                            exportLauncher.launch(suggestTxtName(current2.originalFilename))
+                            exportLauncher.launch(suggestTxtName(current2.displayName))
                         }) { Icon(Icons.Filled.FileDownload, contentDescription = stringResource(R.string.export_txt)) }
                     }
                 },

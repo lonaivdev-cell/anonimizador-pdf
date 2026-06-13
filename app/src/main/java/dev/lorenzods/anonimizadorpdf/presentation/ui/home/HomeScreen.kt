@@ -347,7 +347,7 @@ private fun RecentDocumentRow(doc: PdfDocument, onClick: () -> Unit) {
             }
             Column(Modifier.weight(1f)) {
                 Text(
-                    text = doc.originalFilename,
+                    text = doc.displayName,
                     style = MaterialTheme.typography.bodyLarge,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,

@@ -41,10 +41,24 @@ presentation/ navigation (adaptive shell + NavGraph), theme (color/type/shape + 
 di/          Hilt modules (Database, Repository, UseCase)
 ```
 
+The Room database is at **version 2**. Schema changes ship as explicit `Migration`s (currently
+`MIGRATION_1_2` in `data/db/Migrations.kt`, which adds the `folders` table plus `customName` /
+`folderId` / `isFavorite` columns) — **never** `fallbackToDestructiveMigration`, because the DB holds
+real patient documents. Keep migration DDL byte-aligned with what Room derives from the entities
+(column types, nullability, the `@ColumnInfo(defaultValue = "0")` on `isFavorite`) so the post-migration
+schema validation passes.
+
 Adaptive UI via `WindowSizeClass` (`calculateWindowSizeClass`): phone = `NavigationBar` (Início /
 Biblioteca / Configurações) + single pane; tablet (Expanded) = `PermanentNavigationDrawer` + two-pane
 (`NavigableListDetailPaneScaffold`). The viewer (`DocumentViewer`) is reused both as the Library
-detail pane and as a standalone route opened from Home. The anonymize screen is a single flow:
+detail pane and as a standalone route opened from Home. **The Library list pane** is the organization
+hub: documents live in optional folders (`folders` table + nullable `folderId`), can be renamed inline
+(`customName`, falling back to `originalFilename` via `PdfDocument.displayName`) and favorited (favorites
+pin to the top), the list sorts by date/name/pages (persisted in `AppPreferences`), and long-press starts
+multi-select for bulk move/favorite/delete. A **PDF combiner** merges the selected documents — in a
+user-arranged order — into one new PDF via pdfbox `PDFMergerUtility` (`combinePdfs`, fully offline,
+temp files in app cache only); the result is imported back as a fresh document and offered for
+share/export. The anonymize screen is a single flow:
 offline `PiiDetector` suggestions (grouped by `RedactionCategory`, pre-selected by `Confidence` —
 LOW starts unchecked), tap-to-redact (`RedactableText`), a manual term field, and — only when a
 model is loaded — optional LLM review/deep-scan. On save, the confirmed `NAME`/`ORGANIZATION` terms

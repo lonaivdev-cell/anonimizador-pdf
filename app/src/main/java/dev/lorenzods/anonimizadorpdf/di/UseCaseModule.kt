@@ -7,6 +7,7 @@ import dagger.hilt.components.SingletonComponent
 import dev.lorenzods.anonimizadorpdf.domain.repository.LlmRepository
 import dev.lorenzods.anonimizadorpdf.domain.repository.PdfRepository
 import dev.lorenzods.anonimizadorpdf.domain.usecase.ApplyRedactionsUseCase
+import dev.lorenzods.anonimizadorpdf.domain.usecase.CombinePdfsUseCase
 import dev.lorenzods.anonimizadorpdf.domain.usecase.ExtractTextUseCase
 import dev.lorenzods.anonimizadorpdf.domain.usecase.ImportPdfUseCase
 import dev.lorenzods.anonimizadorpdf.domain.usecase.ReviewSuggestionsUseCase
@@ -23,6 +24,10 @@ object UseCaseModule {
     @Provides
     fun provideExtractTextUseCase(repository: PdfRepository): ExtractTextUseCase =
         ExtractTextUseCase(repository)
+
+    @Provides
+    fun provideCombinePdfsUseCase(repository: PdfRepository): CombinePdfsUseCase =
+        CombinePdfsUseCase(repository)
 
     @Provides
     fun provideSuggestRedactionsUseCase(repository: LlmRepository): SuggestRedactionsUseCase =

@@ -1,6 +1,7 @@
 package dev.lorenzods.anonimizadorpdf.data.db
 
 import dev.lorenzods.anonimizadorpdf.domain.model.AnonymizedVersion
+import dev.lorenzods.anonimizadorpdf.domain.model.Folder
 import dev.lorenzods.anonimizadorpdf.domain.model.PdfDocument
 
 fun PdfDocumentEntity.toDomain() = PdfDocument(
@@ -11,6 +12,9 @@ fun PdfDocumentEntity.toDomain() = PdfDocument(
     extractedText = extractedText,
     pageCount = pageCount,
     status = status,
+    customName = customName,
+    folderId = folderId,
+    isFavorite = isFavorite,
 )
 
 fun PdfDocument.toEntity() = PdfDocumentEntity(
@@ -21,6 +25,21 @@ fun PdfDocument.toEntity() = PdfDocumentEntity(
     extractedText = extractedText,
     pageCount = pageCount,
     status = status,
+    customName = customName,
+    folderId = folderId,
+    isFavorite = isFavorite,
+)
+
+fun FolderEntity.toDomain() = Folder(
+    id = id,
+    name = name,
+    createdTimestamp = createdTimestamp,
+)
+
+fun Folder.toEntity() = FolderEntity(
+    id = id,
+    name = name,
+    createdTimestamp = createdTimestamp,
 )
 
 fun AnonymizedVersionEntity.toDomain() = AnonymizedVersion(

@@ -28,6 +28,7 @@ class AppPreferences @Inject constructor(
         val DYNAMIC_COLOR = booleanPreferencesKey("dynamic_color")
         val FORMAT_OUTPUT = booleanPreferencesKey("format_output")
         val LEARNED_TERMS = stringSetPreferencesKey("learned_terms")
+        val LIBRARY_SORT = stringPreferencesKey("library_sort")
     }
 
     val modelPath: Flow<String?> = context.dataStore.data.map { it[Keys.MODEL_PATH] }
@@ -63,6 +64,9 @@ class AppPreferences @Inject constructor(
     val learnedTerms: Flow<Set<String>> =
         context.dataStore.data.map { it[Keys.LEARNED_TERMS] ?: emptySet() }
 
+    /** Persisted library sort mode (a [dev.lorenzods.anonimizadorpdf.presentation.ui.library.SortMode] name). */
+    val librarySort: Flow<String?> = context.dataStore.data.map { it[Keys.LIBRARY_SORT] }
+
     suspend fun setModelPath(path: String) =
         context.dataStore.edit { it[Keys.MODEL_PATH] = path }
 
@@ -83,6 +87,9 @@ class AppPreferences @Inject constructor(
 
     suspend fun setFormatOutput(enabled: Boolean) =
         context.dataStore.edit { it[Keys.FORMAT_OUTPUT] = enabled }
+
+    suspend fun setLibrarySort(mode: String) =
+        context.dataStore.edit { it[Keys.LIBRARY_SORT] = mode }
 
     /** Merges confirmed terms into the learned set, de-duplicating case-insensitively. */
     suspend fun addLearnedTerms(terms: Collection<String>) {

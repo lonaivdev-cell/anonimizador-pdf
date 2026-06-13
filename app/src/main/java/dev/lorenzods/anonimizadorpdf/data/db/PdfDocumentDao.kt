@@ -29,6 +29,19 @@ interface PdfDocumentDao {
     @Query("UPDATE pdf_documents SET status = :status WHERE id = :id")
     suspend fun updateStatus(id: Long, status: DocumentStatus)
 
+    @Query("UPDATE pdf_documents SET customName = :name WHERE id = :id")
+    suspend fun updateCustomName(id: Long, name: String?)
+
+    @Query("UPDATE pdf_documents SET folderId = :folderId WHERE id = :id")
+    suspend fun updateFolder(id: Long, folderId: Long?)
+
+    @Query("UPDATE pdf_documents SET isFavorite = :favorite WHERE id = :id")
+    suspend fun updateFavorite(id: Long, favorite: Boolean)
+
+    /** Un-files every document in a folder — used before the folder itself is deleted. */
+    @Query("UPDATE pdf_documents SET folderId = NULL WHERE folderId = :folderId")
+    suspend fun clearFolder(folderId: Long)
+
     @Delete
     suspend fun delete(entity: PdfDocumentEntity)
 

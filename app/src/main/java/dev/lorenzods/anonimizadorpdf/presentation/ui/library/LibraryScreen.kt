@@ -922,6 +922,10 @@ private fun ExtractionOverlay(state: ExtractionState) {
 
 private fun sharePdf(context: Context, filename: String, source: File) {
     val dir = File(context.filesDir, "exports").apply { mkdirs() }
+    // Staged copies are cleartext clinical data: drop anything left from earlier shares so the
+    // only residue on disk is the file currently handed to the share sheet (swept again on app
+    // start and by "Apagar todos os dados").
+    dir.listFiles()?.forEach { runCatching { it.delete() } }
     // Stage a copy under the chosen name so the shared file carries a clean filename.
     val staged = File(dir, filename)
     runCatching { source.copyTo(staged, overwrite = true) }

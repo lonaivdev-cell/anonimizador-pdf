@@ -26,6 +26,10 @@ class RootViewModel @Inject constructor(
     val dynamicColor: StateFlow<Boolean> = preferences.dynamicColor
         .stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
+    /** Initial value true: FLAG_SECURE stays set until the preference explicitly disables it. */
+    val blockScreenshots: StateFlow<Boolean> = preferences.blockScreenshots
+        .stateIn(viewModelScope, SharingStarted.Eagerly, true)
+
     fun completeOnboarding() {
         viewModelScope.launch { preferences.setOnboardingDone(true) }
     }

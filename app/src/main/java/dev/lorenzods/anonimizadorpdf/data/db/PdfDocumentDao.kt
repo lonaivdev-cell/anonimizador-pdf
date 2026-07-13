@@ -8,11 +8,32 @@ import androidx.room.Update
 import dev.lorenzods.anonimizadorpdf.domain.model.DocumentStatus
 import kotlinx.coroutines.flow.Flow
 
+/**
+ * List-screen projection of [PdfDocumentEntity] without `extractedText`. Loading the full text of
+ * every document into each list emission is both a memory hazard and a hard crash risk: a single
+ * row whose text exceeds the 2 MB CursorWindow throws `SQLiteBlobTooBigException`. List screens
+ * only need metadata; the text is fetched per-document by id.
+ */
+data class PdfDocumentMetaRow(
+    val id: Long,
+    val originalFilename: String,
+    val importTimestamp: Long,
+    val internalPath: String,
+    val pageCount: Int,
+    val status: DocumentStatus,
+    val customName: String?,
+    val folderId: Long?,
+    val isFavorite: Boolean,
+)
+
 @Dao
 interface PdfDocumentDao {
 
-    @Query("SELECT * FROM pdf_documents ORDER BY importTimestamp DESC")
-    fun observeAll(): Flow<List<PdfDocumentEntity>>
+    @Query(
+        "SELECT id, originalFilename, importTimestamp, internalPath, pageCount, status, " +
+            "customName, folderId, isFavorite FROM pdf_documents ORDER BY importTimestamp DESC",
+    )
+    fun observeAllMeta(): Flow<List<PdfDocumentMetaRow>>
 
     @Query("SELECT * FROM pdf_documents WHERE id = :id")
     fun observeById(id: Long): Flow<PdfDocumentEntity?>

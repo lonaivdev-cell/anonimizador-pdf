@@ -11,6 +11,9 @@ enum class ExtractionError {
     /** PDF parsed but contained no extractable text (likely scanned-only). */
     NO_TEXT,
 
+    /** PDF is password-protected and cannot be opened without the password. */
+    ENCRYPTED,
+
     /** I/O or parsing failure. */
     IO_ERROR,
 }

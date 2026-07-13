@@ -180,17 +180,18 @@ object PiiDetector {
     }
 
     /**
-     * Flags every learned term that appears in the text. Matching mirrors [ApplyRedactionsUseCase]:
-     * case-insensitive, Unicode case-folded, and whole-word (a learned "Ana" never hits "Anamnese"),
-     * so a confirmed term redacts reliably regardless of the casing in the new document. The stored
-     * category is inferred with [RedactionClassifier]; an unclassifiable term defaults to NAME, since
-     * the learned set only ever holds names/instituições.
+     * Flags every learned term that appears in the text. Matching is [TermMatching] — the same rule
+     * [ApplyRedactionsUseCase] applies (whole-word, case- and accent-insensitive), so a confirmed
+     * term is suggested and redacts reliably regardless of casing or stripped diacritics in the new
+     * document ("João" learned once still hits a later "Joao"). The stored category is inferred with
+     * [RedactionClassifier]; an unclassifiable term defaults to NAME, since the learned set only
+     * ever holds names/instituições.
      */
     private fun addLearnedTerms(text: String, terms: Collection<String>, found: MutableList<Detection>) {
         for (raw in terms) {
             val term = raw.trim()
             if (term.isBlank()) continue
-            val pattern = Regex("(?iu)(?<![\\p{L}\\p{N}])${Regex.escape(term)}(?![\\p{L}\\p{N}])")
+            val pattern = TermMatching.wholeWordPattern(term)
             if (pattern.containsMatchIn(text)) {
                 val category = RedactionClassifier.classify(term)
                     .takeUnless { it == RedactionCategory.OTHER } ?: RedactionCategory.NAME

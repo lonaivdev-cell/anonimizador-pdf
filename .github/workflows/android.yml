@@ -34,8 +34,14 @@ jobs:
       - name: Build debug APK
         run: ./gradlew assembleDebug --stacktrace
 
+      - name: Build release APK (unsigned)
+        run: ./gradlew assembleRelease --stacktrace
+
       - name: Run unit tests
         run: ./gradlew testDebugUnitTest --stacktrace
+
+      - name: Android Lint
+        run: ./gradlew lint --stacktrace
 
       - name: Upload debug APK
         if: success()

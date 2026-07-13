@@ -7,11 +7,12 @@ plugins {
     alias(libs.plugins.hilt)
 }
 
-// Version is derived from the release tag in CI (release.yml passes -PversionName / -PversionCode),
-// so the APK's internal version always matches the GitHub release tag and can't drift.
-// The fallbacks below are used for local/debug builds.
-val appVersionName = (project.findProperty("versionName") as String?) ?: "3.0.0"
-val appVersionCode = (project.findProperty("versionCode") as String?)?.toInt() ?: 30000
+// Version literals are the single source of truth: bump BOTH in the release commit that gets
+// tagged vX.Y.Z (versionCode = MAJOR*10000 + MINOR*100 + PATCH). They must stay static literals —
+// F-Droid's checkupdates parses this file without executing Gradle — and release.yml fails the
+// build if the tag doesn't match appVersionName, so tag/APK drift is impossible.
+val appVersionName = "3.1.0"
+val appVersionCode = 30100
 
 android {
     namespace = "dev.lorenzods.anonimizadorpdf"
@@ -28,14 +29,31 @@ android {
         vectorDrawables { useSupportLibrary = true }
     }
 
+    // Optional release signing, fed by CI via -P properties (see release.yml). Absent properties
+    // leave the release build unsigned — fine for local verification, and F-Droid ignores this
+    // config entirely (it signs with its own key). NEVER commit keystore material.
+    val releaseStoreFile = project.findProperty("releaseStoreFile") as String?
+    if (releaseStoreFile != null) {
+        signingConfigs {
+            create("release") {
+                storeFile = file(releaseStoreFile)
+                storePassword = project.findProperty("releaseStorePassword") as String?
+                keyAlias = project.findProperty("releaseKeyAlias") as String?
+                keyPassword = project.findProperty("releaseKeyPassword") as String?
+            }
+        }
+    }
+
     buildTypes {
         debug {
             isMinifyEnabled = false
         }
         release {
-            // Minification kept off: this app is built/distributed as a debug-style personal tool
-            // and CI verifies assembleDebug. Keep rules are provided for when release is enabled.
+            // Distributed builds are release (debuggable=false): a debuggable APK would let anyone
+            // with ADB `run-as` the app and pull the entire patient database. Minification stays
+            // off deliberately — R8 output is a common blocker for F-Droid reproducible builds.
             isMinifyEnabled = false
+            signingConfig = signingConfigs.findByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",

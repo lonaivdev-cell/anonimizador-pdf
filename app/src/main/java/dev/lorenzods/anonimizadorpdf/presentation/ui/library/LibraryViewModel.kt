@@ -358,10 +358,10 @@ class LibraryViewModel @Inject constructor(
 
                 is ExtractionProgress.Error -> _events.emit(
                     LibraryEvent.Message(
-                        if (progress.type == ExtractionError.NO_TEXT) {
-                            R.string.error_no_text
-                        } else {
-                            R.string.error_extraction
+                        when (progress.type) {
+                            ExtractionError.NO_TEXT -> R.string.error_no_text
+                            ExtractionError.ENCRYPTED -> R.string.error_encrypted
+                            ExtractionError.IO_ERROR -> R.string.error_extraction
                         },
                     ),
                 )

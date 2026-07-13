@@ -74,6 +74,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
     val copying by viewModel.copying.collectAsStateWithLifecycle()
     val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
     val dynamicColor by viewModel.dynamicColor.collectAsStateWithLifecycle()
+    val blockScreenshots by viewModel.blockScreenshots.collectAsStateWithLifecycle()
     val learnedTermsCount by viewModel.learnedTermsCount.collectAsStateWithLifecycle()
 
     var showDeleteDialog by remember { mutableStateOf(false) }
@@ -145,6 +146,21 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                         )
                     }
                     Switch(checked = dynamicColor, onCheckedChange = viewModel::setDynamicColor)
+                }
+            }
+
+            // Privacy
+            SettingsCard(stringResource(R.string.settings_section_privacy)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(stringResource(R.string.block_screenshots), style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            stringResource(R.string.block_screenshots_desc),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Switch(checked = blockScreenshots, onCheckedChange = viewModel::setBlockScreenshots)
                 }
             }
 

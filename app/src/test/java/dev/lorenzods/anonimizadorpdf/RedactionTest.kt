@@ -79,4 +79,33 @@ class RedactionTest {
         val result = redact("PACIENTE: JOSÉ ANTÔNIO.", listOf("José Antônio"))
         assertEquals("PACIENTE: $placeholder.", result)
     }
+
+    @Test
+    fun accentedTermMatchesTextWithStrippedDiacritics() {
+        // PDF extraction sometimes strips accents: a term learned as "João" must still redact
+        // the "Joao" a later document yields — a miss here would be silent.
+        val result = redact("Paciente Joao compareceu.", listOf("João"))
+        assertEquals("Paciente $placeholder compareceu.", result)
+    }
+
+    @Test
+    fun unaccentedTermMatchesAccentedText() {
+        val result = redact("Paciente João compareceu.", listOf("Joao"))
+        assertEquals("Paciente $placeholder compareceu.", result)
+    }
+
+    @Test
+    fun matchesDecomposedUnicodeText() {
+        // NFD input: "João" with the tilde as a combining mark (a + U+0303).
+        val nfd = "Paciente João compareceu."
+        val result = redact(nfd, listOf("João"))
+        assertEquals("Paciente $placeholder compareceu.", result)
+    }
+
+    @Test
+    fun accentFoldingStaysWholeWord() {
+        // "Ana" (or "Anã") must never mangle "Anamnese", accent-folded or not.
+        val result = redact("Anamnese: Anã relatou dor.", listOf("Ana"))
+        assertEquals("Anamnese: $placeholder relatou dor.", result)
+    }
 }

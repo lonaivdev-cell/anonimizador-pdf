@@ -141,6 +141,7 @@
     <string name="extracting_multi">Documento %1$d de %2$d…</string>
     <string name="extracting_multi_progress">Documento %1$d de %2$d — extraindo página %3$d de %4$d…</string>
     <string name="error_no_text">Este PDF não contém texto extraível (pode ser um arquivo escaneado).</string>
+    <string name="error_encrypted">Este PDF é protegido por senha. Remova a senha e importe novamente.</string>
     <string name="error_extraction">Falha ao extrair o texto do PDF.</string>
     <string name="error_import">Falha ao importar o arquivo.</string>
 
@@ -243,6 +244,9 @@
     <string name="delete_all_data_title">Apagar todos os dados?</string>
     <string name="delete_all_data_message">Isso removerá permanentemente todos os documentos importados e versões anonimizadas. Esta ação não pode ser desfeita.</string>
     <string name="all_data_deleted">Todos os dados foram apagados</string>
+    <string name="settings_section_privacy">Privacidade</string>
+    <string name="block_screenshots">Bloquear capturas de tela</string>
+    <string name="block_screenshots_desc">Impede capturas de tela, gravação de tela e a miniatura nos apps recentes enquanto o app estiver aberto.</string>
     <string name="settings_section_about">Sobre</string>
     <string name="about_version">Versão %1$s</string>
     <string name="about_repo">Repositório no GitHub</string>

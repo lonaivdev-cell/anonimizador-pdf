@@ -1,15 +1,27 @@
 name: Release
 
-# Publishes a GitHub Release with the debug APK attached.
-# Trigger either by pushing a version tag (e.g. `git tag v1.0.0 && git push origin v1.0.0`)
-# or manually via the Actions tab ("Run workflow") providing a version like v1.0.0.
+# Publishes a GitHub Release with a signed RELEASE APK attached (debuggable=false — a debug build
+# would let anyone with ADB pull the app's clinical database via `run-as`).
+#
+# Trigger by pushing a version tag (e.g. `git tag v3.1.0 && git push origin v3.1.0`) or manually
+# via the Actions tab providing the tag. The tag MUST match `appVersionName` committed in
+# app/build.gradle.kts (bump the literals in the release commit); the workflow fails otherwise.
+#
+# Signing: add these repository secrets for a STABLE signature (required for updates to install
+# over previous releases):
+#   RELEASE_KEYSTORE_BASE64   – base64 of a keystore file (keytool -genkeypair …, then base64 -w0)
+#   RELEASE_KEYSTORE_PASSWORD – keystore password
+#   RELEASE_KEY_ALIAS         – key alias
+#   RELEASE_KEY_PASSWORD      – key password
+# Without them the APK is signed with a one-off key generated for the run (installable, but
+# updating a previous install will require uninstalling first — the workflow warns about it).
 on:
   push:
     tags: ["v*"]
   workflow_dispatch:
     inputs:
       version:
-        description: "Release version tag (e.g. v1.0.0)"
+        description: "Release version tag (e.g. v3.1.0)"
         required: true
 
 permissions:
@@ -38,7 +50,7 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Resolve version tag
+      - name: Resolve and verify version tag
         id: ver
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
@@ -48,27 +60,49 @@ jobs:
           fi
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
 
-          # Derive the Android versionName/versionCode from the tag so the APK's
-          # internal version always matches the release tag (no manual drift).
-          VERSION_NAME="${TAG#[vV]}"
-          CORE="$(echo "$VERSION_NAME" | grep -oE '^[0-9]+\.[0-9]+\.[0-9]+' || echo '0.0.0')"
-          IFS='.' read -r MAJ MIN PAT <<< "$CORE"
-          VERSION_CODE=$((10#$MAJ * 10000 + 10#$MIN * 100 + 10#$PAT))
-          echo "name=${VERSION_NAME}" >> "$GITHUB_OUTPUT"
-          echo "code=${VERSION_CODE}" >> "$GITHUB_OUTPUT"
-          echo "Resolved versionName=${VERSION_NAME} versionCode=${VERSION_CODE}"
+          # The committed literals in app/build.gradle.kts are the single source of truth
+          # (F-Droid's checkupdates reads them statically). Refuse to release on drift.
+          WANT="${TAG#[vV]}"
+          HAVE="$(grep -oP 'val appVersionName = "\K[^"]+' app/build.gradle.kts)"
+          if [ "$WANT" != "$HAVE" ]; then
+            echo "::error::Tag ${TAG} does not match appVersionName \"${HAVE}\" in app/build.gradle.kts. Bump the version literals in the release commit, then re-tag."
+            exit 1
+          fi
 
-      - name: Build debug APK
+      - name: Prepare signing keystore
+        id: keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+        run: |
+          KS="$RUNNER_TEMP/release.jks"
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            printf '%s' "$KEYSTORE_BASE64" | base64 -d > "$KS"
+            echo "Using the repository's release keystore."
+          else
+            keytool -genkeypair -keystore "$KS" \
+              -storepass ci-ephemeral -keypass ci-ephemeral -alias release \
+              -dname "CN=anonimizador-pdf" -keyalg RSA -keysize 4096 -validity 10000
+            echo "::warning::RELEASE_KEYSTORE_BASE64 secret not set — this APK is signed with a one-off key generated for this run. Installing it as an update over a previous release will fail. Add the RELEASE_* secrets (see workflow header) for a stable signature."
+          fi
+          echo "path=$KS" >> "$GITHUB_OUTPUT"
+
+      - name: Build signed release APK
+        env:
+          STORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
         run: |
           chmod +x ./gradlew
-          ./gradlew assembleDebug --stacktrace \
-            -PversionName="${{ steps.ver.outputs.name }}" \
-            -PversionCode="${{ steps.ver.outputs.code }}"
+          ./gradlew assembleRelease --stacktrace \
+            -PreleaseStoreFile="${{ steps.keystore.outputs.path }}" \
+            -PreleaseStorePassword="${STORE_PASSWORD:-ci-ephemeral}" \
+            -PreleaseKeyAlias="${KEY_ALIAS:-release}" \
+            -PreleaseKeyPassword="${KEY_PASSWORD:-ci-ephemeral}"
 
       - name: Stage APK
         run: |
           mkdir -p release-out
-          cp app/build/outputs/apk/debug/app-debug.apk \
+          cp app/build/outputs/apk/release/app-release.apk \
             "release-out/anonimizador-pdf-${{ steps.ver.outputs.tag }}.apk"
 
       - name: Publish GitHub Release

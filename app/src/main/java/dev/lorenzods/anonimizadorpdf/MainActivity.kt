@@ -3,11 +3,13 @@ package dev.lorenzods.anonimizadorpdf
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.material3.windowsizeclass.ExperimentalMaterial3WindowSizeClassApi
 import androidx.compose.material3.windowsizeclass.calculateWindowSizeClass
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -31,6 +33,10 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
 
+        // Patient text must never appear in screenshots, screen recordings or the Recents
+        // thumbnail. Set eagerly (before any content is drawn); the preference below can lift it.
+        window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+
         // Read the launch intent only on a genuine first creation — on a config-change recreation
         // the same shared PDF would otherwise be imported again.
         if (savedInstanceState == null) {
@@ -41,6 +47,14 @@ class MainActivity : ComponentActivity() {
             val rootViewModel: RootViewModel = hiltViewModel()
             val themeMode by rootViewModel.themeMode.collectAsStateWithLifecycle()
             val dynamicColor by rootViewModel.dynamicColor.collectAsStateWithLifecycle()
+            val blockScreenshots by rootViewModel.blockScreenshots.collectAsStateWithLifecycle()
+            LaunchedEffect(blockScreenshots) {
+                if (blockScreenshots) {
+                    window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                } else {
+                    window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                }
+            }
             AnonimizadorTheme(themeMode = themeMode, dynamicColor = dynamicColor) {
                 val windowSizeClass = calculateWindowSizeClass(this)
                 AppShell(

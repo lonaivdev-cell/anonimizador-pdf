@@ -29,6 +29,7 @@ class AppPreferences @Inject constructor(
         val FORMAT_OUTPUT = booleanPreferencesKey("format_output")
         val LEARNED_TERMS = stringSetPreferencesKey("learned_terms")
         val LIBRARY_SORT = stringPreferencesKey("library_sort")
+        val BLOCK_SCREENSHOTS = booleanPreferencesKey("block_screenshots")
     }
 
     val modelPath: Flow<String?> = context.dataStore.data.map { it[Keys.MODEL_PATH] }
@@ -67,6 +68,13 @@ class AppPreferences @Inject constructor(
     /** Persisted library sort mode (a [dev.lorenzods.anonimizadorpdf.presentation.ui.library.SortMode] name). */
     val librarySort: Flow<String?> = context.dataStore.data.map { it[Keys.LIBRARY_SORT] }
 
+    /**
+     * FLAG_SECURE: keeps patient text out of screenshots, screen recordings and the Recents
+     * thumbnail. Defaults to true — the safe direction for a clinical tool.
+     */
+    val blockScreenshots: Flow<Boolean> =
+        context.dataStore.data.map { it[Keys.BLOCK_SCREENSHOTS] ?: true }
+
     suspend fun setModelPath(path: String) =
         context.dataStore.edit { it[Keys.MODEL_PATH] = path }
 
@@ -90,6 +98,9 @@ class AppPreferences @Inject constructor(
 
     suspend fun setLibrarySort(mode: String) =
         context.dataStore.edit { it[Keys.LIBRARY_SORT] = mode }
+
+    suspend fun setBlockScreenshots(enabled: Boolean) =
+        context.dataStore.edit { it[Keys.BLOCK_SCREENSHOTS] = enabled }
 
     /** Merges confirmed terms into the learned set, de-duplicating case-insensitively. */
     suspend fun addLearnedTerms(terms: Collection<String>) {

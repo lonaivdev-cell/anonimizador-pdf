@@ -60,11 +60,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -74,6 +72,7 @@ import dev.lorenzods.anonimizadorpdf.domain.usecase.ApplyRedactionsUseCase
 import dev.lorenzods.anonimizadorpdf.presentation.theme.AppTheme
 import dev.lorenzods.anonimizadorpdf.presentation.theme.DocumentTextStyle
 import dev.lorenzods.anonimizadorpdf.presentation.ui.common.InfoBanner
+import dev.lorenzods.anonimizadorpdf.presentation.ui.common.copySensitiveText
 import dev.lorenzods.anonimizadorpdf.presentation.ui.viewer.highlightPlaceholders
 import dev.lorenzods.anonimizadorpdf.presentation.ui.viewer.shareText
 import kotlinx.coroutines.launch
@@ -90,7 +89,6 @@ fun AnonymizeScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
-    val clipboard = LocalClipboardManager.current
     val scope = rememberCoroutineScope()
     val copiedMsg = stringResource(R.string.copied)
 
@@ -160,7 +158,7 @@ fun AnonymizeScreen(
                     onSave = viewModel::save,
                     onExport = { exportLauncher.launch(exportName()) },
                     onCopy = {
-                        clipboard.setText(AnnotatedString(preview))
+                        copySensitiveText(context, preview)
                         scope.launch { snackbarHostState.showSnackbar(copiedMsg) }
                     },
                     onShare = { scope.launch { shareText(context, exportName(), preview) } },

@@ -54,7 +54,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -76,6 +75,7 @@ import dev.lorenzods.anonimizadorpdf.domain.usecase.ApplyRedactionsUseCase
 import dev.lorenzods.anonimizadorpdf.presentation.theme.AppTheme
 import dev.lorenzods.anonimizadorpdf.presentation.theme.DocumentTextStyle
 import dev.lorenzods.anonimizadorpdf.presentation.ui.common.EmptyState
+import dev.lorenzods.anonimizadorpdf.presentation.ui.common.copySensitiveText
 import kotlinx.coroutines.launch
 import java.io.File
 import java.text.SimpleDateFormat
@@ -117,7 +117,6 @@ fun DocumentViewer(
     val versions by viewModel.versions.collectAsStateWithLifecycle()
 
     val context = LocalContext.current
-    val clipboard = LocalClipboardManager.current
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
@@ -179,7 +178,7 @@ fun DocumentViewer(
                     val current2 = doc
                     if (current2 != null && selectedTab == 0) {
                         IconButton(onClick = {
-                            clipboard.setText(AnnotatedString(current2.extractedText))
+                            copySensitiveText(context, current2.extractedText)
                             scope.launch { snackbarHostState.showSnackbar(copiedMsg) }
                         }) { Icon(Icons.Filled.ContentCopy, contentDescription = stringResource(R.string.copy)) }
                         IconButton(onClick = {
@@ -233,7 +232,7 @@ fun DocumentViewer(
                             versions = versions,
                             onOpen = { previewVersion = it },
                             onCopy = { v ->
-                                clipboard.setText(AnnotatedString(v.anonymizedText))
+                                copySensitiveText(context, v.anonymizedText)
                                 scope.launch { snackbarHostState.showSnackbar(copiedMsg) }
                             },
                             onShare = { v -> scope.launch { shareText(context, versionFileName(v), v.anonymizedText) } },
@@ -250,7 +249,7 @@ fun DocumentViewer(
             version = version,
             onDismiss = { previewVersion = null },
             onCopy = {
-                clipboard.setText(AnnotatedString(version.anonymizedText))
+                copySensitiveText(context, version.anonymizedText)
                 scope.launch { snackbarHostState.showSnackbar(copiedMsg) }
             },
             onExport = {
@@ -467,6 +466,10 @@ private fun formatDateTime(timestamp: Long): String =
 
 internal fun shareText(context: Context, filename: String, content: String) {
     val dir = File(context.filesDir, "exports").apply { mkdirs() }
+    // Staged copies are cleartext clinical data: drop anything left from earlier shares so the
+    // only residue on disk is the file currently handed to the share sheet (swept again on app
+    // start and by "Apagar todos os dados").
+    dir.listFiles()?.forEach { runCatching { it.delete() } }
     val file = File(dir, filename)
     file.writeText(content)
     val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)

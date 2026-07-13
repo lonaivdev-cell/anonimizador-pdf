@@ -52,11 +52,15 @@
                 <data android:mimeType="application/pdf" />
             </intent-filter>
 
-            <!-- Open a PDF -->
+            <!-- Open a PDF. Explicit schemes are required alongside BROWSABLE (lint
+                 AppLinkUrlError): PDFs arrive as content:// from file managers/browsers
+                 (and legacy file:// from older senders). -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="content" />
+                <data android:scheme="file" />
                 <data android:mimeType="application/pdf" />
             </intent-filter>
         </activity>

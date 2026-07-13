@@ -17,6 +17,20 @@ fun PdfDocumentEntity.toDomain() = PdfDocument(
     isFavorite = isFavorite,
 )
 
+/** List projection: text is intentionally empty — fetch the document by id when text is needed. */
+fun PdfDocumentMetaRow.toDomain() = PdfDocument(
+    id = id,
+    originalFilename = originalFilename,
+    importTimestamp = importTimestamp,
+    internalPath = internalPath,
+    extractedText = "",
+    pageCount = pageCount,
+    status = status,
+    customName = customName,
+    folderId = folderId,
+    isFavorite = isFavorite,
+)
+
 fun PdfDocument.toEntity() = PdfDocumentEntity(
     id = id,
     originalFilename = originalFilename,
@@ -46,6 +60,15 @@ fun AnonymizedVersionEntity.toDomain() = AnonymizedVersion(
     id = id,
     parentDocumentId = parentDocumentId,
     anonymizedText = anonymizedText,
+    redactedTerms = redactedTerms,
+    createdTimestamp = createdTimestamp,
+)
+
+/** Dashboard projection: anonymized text is intentionally empty (only counts/terms are needed). */
+fun AnonymizedVersionMetaRow.toDomain() = AnonymizedVersion(
+    id = id,
+    parentDocumentId = parentDocumentId,
+    anonymizedText = "",
     redactedTerms = redactedTerms,
     createdTimestamp = createdTimestamp,
 )

@@ -44,6 +44,9 @@ class SettingsViewModel @Inject constructor(
     val dynamicColor: StateFlow<Boolean> =
         preferences.dynamicColor.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
+    val blockScreenshots: StateFlow<Boolean> =
+        preferences.blockScreenshots.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
+
     /** How many terms the offline detector has learned from confirmed redactions. */
     val learnedTermsCount: StateFlow<Int> = preferences.learnedTerms
         .map { it.size }
@@ -93,6 +96,10 @@ class SettingsViewModel @Inject constructor(
 
     fun setDynamicColor(enabled: Boolean) {
         viewModelScope.launch { preferences.setDynamicColor(enabled) }
+    }
+
+    fun setBlockScreenshots(enabled: Boolean) {
+        viewModelScope.launch { preferences.setBlockScreenshots(enabled) }
     }
 
     fun replayOnboarding() {

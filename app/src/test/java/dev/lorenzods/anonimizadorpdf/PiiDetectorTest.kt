@@ -270,6 +270,22 @@ class PiiDetectorTest {
     }
 
     @Test
+    fun learnedTermMatchesTextWithStrippedDiacritics() {
+        // PDF extraction sometimes strips accents: a learned "João" must still hit "Joao".
+        val d = detect("Paciente Joao compareceu à consulta.", listOf("João"))
+            .term("João")
+        assertNotNull(d)
+        assertEquals(Confidence.HIGH, d!!.confidence)
+    }
+
+    @Test
+    fun unaccentedLearnedTermMatchesAccentedText() {
+        val d = detect("Paciente João compareceu à consulta.", listOf("Joao"))
+            .term("Joao")
+        assertNotNull(d)
+    }
+
+    @Test
     fun absentLearnedTermIsNotSuggested() {
         val result = detect("Hemograma dentro dos parâmetros normais.", listOf("Valdomiro"))
         assertTrue(result.none { it.term.equals("Valdomiro", ignoreCase = true) })

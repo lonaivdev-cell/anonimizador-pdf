@@ -29,6 +29,15 @@ This app handles sensitive patient data. Do not weaken any of these:
   used to seed future detection) lives in app-internal DataStore — same offline guarantee.
 - **Never log extracted/clinical text content.** Log sizes only (e.g. `"extraction complete, N chars"`).
   This includes learned terms — never log their contents.
+- **`FLAG_SECURE` defaults ON** (Settings → Privacidade can disable): patient text must not appear
+  in screenshots, screen recordings or the Recents thumbnail.
+- **Clipboard copies of clinical text go through `copySensitiveText()`** (platform ClipboardManager
+  with `EXTRA_IS_SENSITIVE`) — never Compose's `LocalClipboardManager`, which can't set the flag.
+- **Cleartext residue is swept**: share-staged files in `filesDir/exports` are cleared before each
+  share, on app start (`AnonimizadorApp.sweepCleartextResidue`) and by `deleteAll()`. Any new code
+  that stages clinical bytes on disk must join this lifecycle.
+- **Distributed builds are `assembleRelease`** (`debuggable=false`). Never publish a debug APK — it
+  allows `adb run-as` extraction of the entire patient database.
 
 ## Architecture
 
@@ -100,7 +109,13 @@ Hilt and Room both use **KSP** (not KAPT).
 
 The build is verified by **GitHub Actions** (`.github/workflows/android.yml`) on `ubuntu-latest`
 runners, which have the Android SDK and full network access. CI runs `assembleDebug` +
-`testDebugUnitTest` and uploads the debug APK as an artifact.
+`assembleRelease` + `testDebugUnitTest` + `lint` and uploads the debug APK as an artifact.
+
+Releases (`.github/workflows/release.yml`) build a **signed release APK** from a `vX.Y.Z` tag. The
+version literals `appVersionName`/`appVersionCode` in `app/build.gradle.kts` are the single source
+of truth — bump both in the release commit; the workflow fails if the tag doesn't match. They must
+stay static literals (F-Droid's checkupdates parses the file without executing Gradle). A stable
+signature requires the `RELEASE_*` repository secrets documented in the workflow header.
 
 ## Loading an LLM model
 

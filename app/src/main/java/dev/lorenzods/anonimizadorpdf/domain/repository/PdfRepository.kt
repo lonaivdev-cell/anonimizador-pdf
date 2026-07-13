@@ -9,6 +9,11 @@ import dev.lorenzods.anonimizadorpdf.domain.model.PdfDocument
 import kotlinx.coroutines.flow.Flow
 
 interface PdfRepository {
+    /**
+     * All documents for list screens. **Metadata only**: [PdfDocument.extractedText] is empty in
+     * these emissions (loading every text into each list update is a memory/crash hazard) — fetch
+     * a single document via [observeDocument]/[getDocument] when the text is needed.
+     */
     fun observeDocuments(): Flow<List<PdfDocument>>
     fun observeDocument(id: Long): Flow<PdfDocument?>
     suspend fun getDocument(id: Long): PdfDocument?
@@ -46,6 +51,10 @@ interface PdfRepository {
     suspend fun deleteAnonymizedVersion(version: AnonymizedVersion)
     fun observeAnonymizedVersions(documentId: Long): Flow<List<AnonymizedVersion>>
 
-    /** Every saved anonymized version across all documents — backs the home dashboard stats. */
+    /**
+     * Every saved anonymized version across all documents — backs the home dashboard stats.
+     * **Metadata only**: [AnonymizedVersion.anonymizedText] is empty in these emissions; use
+     * [observeAnonymizedVersions] for a document's full versions.
+     */
     fun observeAllAnonymizedVersions(): Flow<List<AnonymizedVersion>>
 }

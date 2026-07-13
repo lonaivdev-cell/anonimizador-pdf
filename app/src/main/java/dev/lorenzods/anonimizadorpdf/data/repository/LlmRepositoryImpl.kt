@@ -81,18 +81,39 @@ class LlmRepositoryImpl @Inject constructor(
 
     override suspend fun importModel(uri: Uri): String = withContext(ioDispatcher) {
         val dir = File(context.filesDir, "models").apply { mkdirs() }
-        // Single model slot — remove any previously imported model.
-        dir.listFiles()?.forEach { it.delete() }
-        val name = queryDisplayName(uri) ?: "model.task"
-        val dest = File(dir, name.ifBlank { "model.task" })
-        context.contentResolver.openInputStream(uri)?.use { input ->
-            dest.outputStream().use { output -> input.copyTo(output) }
-        } ?: throw IOException("Não foi possível ler o arquivo do modelo")
+        // DISPLAY_NAME is supplied by an arbitrary content provider — sanitize it so a hostile
+        // "../../databases/…" name can never escape the models directory.
+        val name = (queryDisplayName(uri) ?: "model.task")
+            .substringAfterLast('/')
+            .sanitizeFilename()
+            .trimStart('.')
+            .ifBlank { "model.task" }
+        // Copy to a temp file first: the previous model is only discarded once the new one has
+        // fully copied, so a failed import never leaves the app with no (or a truncated) model.
+        val tmp = File(dir, "incoming.part")
+        try {
+            context.contentResolver.openInputStream(uri)?.use { input ->
+                tmp.outputStream().use { output -> input.copyTo(output) }
+            } ?: throw IOException("Não foi possível ler o arquivo do modelo")
+        } catch (e: Exception) {
+            runCatching { tmp.delete() }
+            throw e
+        }
+        // Single model slot — swap the fully-copied file in place of any previous model.
+        dir.listFiles()?.forEach { if (it != tmp) it.delete() }
+        val dest = File(dir, name)
+        if (!tmp.renameTo(dest)) {
+            tmp.copyTo(dest, overwrite = true)
+            tmp.delete()
+        }
         // Force re-init on next inference so the new model is loaded.
         close()
         Log.i(TAG, "model imported (${dest.length() / (1024 * 1024)} MB)")
         dest.absolutePath
     }
+
+    private fun String.sanitizeFilename(): String =
+        replace(Regex("[^A-Za-z0-9._-]"), "_").take(100)
 
     private fun queryDisplayName(uri: Uri): String? =
         context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->

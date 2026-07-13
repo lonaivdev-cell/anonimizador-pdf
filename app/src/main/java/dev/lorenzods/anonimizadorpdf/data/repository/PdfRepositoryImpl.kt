@@ -7,6 +7,7 @@ import android.util.Log
 import com.tom_roush.pdfbox.io.MemoryUsageSetting
 import com.tom_roush.pdfbox.multipdf.PDFMergerUtility
 import com.tom_roush.pdfbox.pdmodel.PDDocument
+import com.tom_roush.pdfbox.pdmodel.encryption.InvalidPasswordException
 import com.tom_roush.pdfbox.text.PDFTextStripper
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dev.lorenzods.anonimizadorpdf.data.db.AnonymizedVersionDao
@@ -24,6 +25,7 @@ import dev.lorenzods.anonimizadorpdf.domain.model.ExtractionProgress
 import dev.lorenzods.anonimizadorpdf.domain.model.Folder
 import dev.lorenzods.anonimizadorpdf.domain.model.PdfDocument
 import dev.lorenzods.anonimizadorpdf.domain.repository.PdfRepository
+import dev.lorenzods.anonimizadorpdf.domain.usecase.TermMatching
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -45,7 +47,7 @@ class PdfRepositoryImpl @Inject constructor(
 ) : PdfRepository {
 
     override fun observeDocuments(): Flow<List<PdfDocument>> =
-        documentDao.observeAll().map { list -> list.map { it.toDomain() } }
+        documentDao.observeAllMeta().map { list -> list.map { it.toDomain() } }
 
     override fun observeDocument(id: Long): Flow<PdfDocument?> =
         documentDao.observeById(id).map { it?.toDomain() }
@@ -84,7 +86,12 @@ class PdfRepositoryImpl @Inject constructor(
             return@flow
         }
         try {
-            PDDocument.load(File(doc.internalPath)).use { pdf ->
+            // Temp-file buffering keeps memory bounded for large PDFs (the merge path already does
+            // this); scratch files stay in app-internal cache, preserving the offline guarantee.
+            PDDocument.load(
+                File(doc.internalPath),
+                MemoryUsageSetting.setupTempFileOnly().setTempDir(context.cacheDir),
+            ).use { pdf ->
                 val pageCount = pdf.numberOfPages
                 emit(ExtractionProgress.InProgress(0, pageCount))
                 val stripper = PDFTextStripper()
@@ -95,7 +102,9 @@ class PdfRepositoryImpl @Inject constructor(
                     builder.append(stripper.getText(pdf))
                     emit(ExtractionProgress.InProgress(page, pageCount))
                 }
-                val text = builder.toString()
+                // NFC-normalize once at the source so stored text, learned terms and manual terms
+                // all compare in the same composed form (see TermMatching).
+                val text = TermMatching.normalize(builder.toString())
                 if (text.isBlank()) {
                     emit(ExtractionProgress.Error(ExtractionError.NO_TEXT))
                     return@use
@@ -110,8 +119,11 @@ class PdfRepositoryImpl @Inject constructor(
                 Log.i(TAG, "extraction complete, ${text.length} chars, $pageCount pages")
                 emit(ExtractionProgress.Success(text, pageCount))
             }
+        } catch (e: InvalidPasswordException) {
+            Log.e(TAG, "extraction failed: password-protected PDF")
+            emit(ExtractionProgress.Error(ExtractionError.ENCRYPTED))
         } catch (e: Exception) {
-            // pdfbox throws RuntimeExceptions on malformed/encrypted PDFs, not just IOExceptions.
+            // pdfbox throws RuntimeExceptions on malformed PDFs, not just IOExceptions.
             // Never log content or filename — class name only.
             Log.e(TAG, "extraction failed: ${e.javaClass.simpleName}")
             emit(ExtractionProgress.Error(ExtractionError.IO_ERROR))
@@ -130,6 +142,10 @@ class PdfRepositoryImpl @Inject constructor(
         versionDao.deleteAll()
         documentDao.deleteAll()
         runCatching { File(context.filesDir, "documents").deleteRecursively() }
+        // Share-staged exports and pdfbox scratch files are cleartext clinical data too —
+        // "Apagar todos os dados" must not leave them behind.
+        runCatching { File(context.filesDir, "exports").deleteRecursively() }
+        runCatching { context.cacheDir.listFiles()?.forEach { it.deleteRecursively() } }
         Unit
     }
 
@@ -216,7 +232,7 @@ class PdfRepositoryImpl @Inject constructor(
         versionDao.observeForDocument(documentId).map { list -> list.map { it.toDomain() } }
 
     override fun observeAllAnonymizedVersions(): Flow<List<AnonymizedVersion>> =
-        versionDao.observeAll().map { list -> list.map { it.toDomain() } }
+        versionDao.observeAllMeta().map { list -> list.map { it.toDomain() } }
 
     private fun queryDisplayName(uri: Uri): String? =
         context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->

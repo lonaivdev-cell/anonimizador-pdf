@@ -1,11 +1,9 @@
 package dev.lorenzods.anonimizadorpdf.domain.usecase
 
 /**
- * Replaces every selected term in the text with [PLACEHOLDER] (case- and accent-case-insensitive).
- *
- * Matching is **whole-word**: an occurrence only counts when it is not glued to another letter or
- * digit, so redacting "Ana" never mangles "Anamnese". Terms made of symbols/digits (CPF, e-mail,
- * telefone) still match because their neighbours are naturally non-alphanumeric.
+ * Replaces every selected term in the text with [PLACEHOLDER]. Matching rules (whole-word,
+ * case-insensitive, accent-insensitive in both directions, NFD-tolerant) come from [TermMatching],
+ * shared with the detector's learned-term pass so what gets suggested is exactly what gets redacted.
  *
  * Terms are applied longest-first so that a shorter term that is a substring of a longer one does
  * not pre-empt the longer replacement.
@@ -19,10 +17,9 @@ class ApplyRedactionsUseCase {
             .distinct()
             .sortedByDescending { it.length }
 
-        var result = text
+        var result = TermMatching.normalize(text)
         for (term in ordered) {
-            // (?iu) = case-insensitive + Unicode case folding (JOÃO ↔ joão on the JVM as well).
-            val pattern = Regex("(?iu)(?<![\\p{L}\\p{N}])${Regex.escape(term)}(?![\\p{L}\\p{N}])")
+            val pattern = TermMatching.wholeWordPattern(term)
             result = pattern.replace(result, Regex.escapeReplacement(PLACEHOLDER))
         }
         return result
